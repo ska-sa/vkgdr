@@ -25,6 +25,7 @@ struct vkgdr_memory
     vkgdr_t owner;
     VkDeviceMemory memory;
     void *host_ptr;
+    size_t size;
     CUexternalMemory ext_mem;
     CUdeviceptr device_ptr;
 };
@@ -182,6 +183,7 @@ vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size)
     if (vkAllocateMemory(g->device, &info, NULL, &out->memory) != VK_SUCCESS)
         goto free_out;
     out->owner = g;
+    out->size = size;
 
     if (vkMapMemory(g->device, out->memory, 0, VK_WHOLE_SIZE, 0, &out->host_ptr) != VK_SUCCESS)
         goto free_memory;
@@ -250,6 +252,11 @@ void *vkgdr_memory_get_host(vkgdr_memory_t mem)
 CUdeviceptr vkgdr_memory_get_device(vkgdr_memory_t mem)
 {
     return mem->device_ptr;
+}
+
+size_t vkgdr_memory_get_size(vkgdr_memory_t mem)
+{
+    return mem->size;
 }
 
 bool vkgdr_memory_is_coherent(vkgdr_memory_t mem)
