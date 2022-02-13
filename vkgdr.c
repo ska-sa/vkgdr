@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <cuda.h>
 #include <vulkan/vulkan.h>
@@ -14,6 +15,8 @@ struct vkgdr
     VkPhysicalDevice phys_device;
     VkDevice device;
     uint32_t memory_type;
+    bool coherent;
+    size_t non_coherent_atom_size;
     PFN_vkGetMemoryFdKHR vkGetMemoryFdKHR;
 };
 
@@ -26,7 +29,7 @@ struct vkgdr_memory
     CUdeviceptr device_ptr;
 };
 
-vkgdr_t vkgdr_open(CUdevice device)
+vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
 {
     vkgdr_t out;
     const VkApplicationInfo application_info =
@@ -113,6 +116,19 @@ vkgdr_t vkgdr_open(CUdevice device)
     if (i == memory_properties.memoryTypeCount)
         goto free_devices;  // no suitable memory type found
     out->memory_type = i;
+    if ((memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+        && !(flags & VKGDR_OPEN_FORCE_NON_COHERENT_BIT))
+    {
+        out->coherent = true;
+        out->non_coherent_atom_size = 1;
+    }
+    else
+    {
+        VkPhysicalDeviceProperties device_props = {};
+        vkGetPhysicalDeviceProperties(phys_device, &device_props);
+        out->coherent = false;
+        out->non_coherent_atom_size = device_props.limits.nonCoherentAtomSize;
+    }
 
     free(devices);
     out->phys_device = phys_device;
@@ -129,12 +145,12 @@ free_out:
     return NULL;
 }
 
-vkgdr_t vkgdr_open_current(void)
+vkgdr_t vkgdr_open_current(uint32_t flags)
 {
     CUdevice device;
     if (cuCtxGetDevice(&device) != CUDA_SUCCESS)
         return NULL;
-    return vkgdr_open(device);
+    return vkgdr_open(device, flags);
 }
 
 void vkgdr_close(vkgdr_t g)
@@ -147,7 +163,7 @@ void vkgdr_close(vkgdr_t g)
     }
 }
 
-vkgdr_memory_t vkgdr_malloc(vkgdr_t g, size_t size)
+vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size)
 {
     // TODO: only supports Linux
     VkExportMemoryAllocateInfo export_info =
@@ -214,7 +230,7 @@ free_out:
     return NULL;
 }
 
-void vkgdr_free(vkgdr_memory_t mem)
+void vkgdr_memory_free(vkgdr_memory_t mem)
 {
     if (mem)
     {
@@ -226,12 +242,52 @@ void vkgdr_free(vkgdr_memory_t mem)
     }
 }
 
-void *vkgdr_get_host(vkgdr_memory_t mem)
+void *vkgdr_memory_get_host(vkgdr_memory_t mem)
 {
     return mem->host_ptr;
 }
 
-CUdeviceptr vkgdr_get_device(vkgdr_memory_t mem)
+CUdeviceptr vkgdr_memory_get_device(vkgdr_memory_t mem)
 {
     return mem->device_ptr;
+}
+
+bool vkgdr_memory_is_coherent(vkgdr_memory_t mem)
+{
+    return mem->owner->coherent;
+}
+
+size_t vkgdr_memory_non_coherent_atom_size(vkgdr_memory_t mem)
+{
+    return mem->owner->non_coherent_atom_size;
+}
+
+void vkgdr_memory_flush(vkgdr_memory_t mem, size_t offset, size_t size)
+{
+    if (!mem->owner->coherent)
+    {
+        const VkMappedMemoryRange range =
+        {
+            .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+            .memory = mem->memory,
+            .offset = offset,
+            .size = size
+        };
+        vkFlushMappedMemoryRanges(mem->owner->device, 1, &range);
+    }
+}
+
+void vkgdr_memory_invalidate(vkgdr_memory_t mem, size_t offset, size_t size)
+{
+    if (!mem->owner->coherent)
+    {
+        const VkMappedMemoryRange range =
+        {
+            .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+            .memory = mem->memory,
+            .offset = offset,
+            .size = size
+        };
+        vkInvalidateMappedMemoryRanges(mem->owner->device, 1, &range);
+    }
 }
