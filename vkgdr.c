@@ -164,7 +164,7 @@ void vkgdr_close(vkgdr_t g)
     }
 }
 
-vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size)
+vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
 {
     // TODO: only supports Linux
     VkExportMemoryAllocateInfo export_info =

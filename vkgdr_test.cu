@@ -21,9 +21,9 @@ int main()
 
     vkgdr_t g = vkgdr_open_current(0);
     assert(g);
-    vkgdr_memory_t Amem = vkgdr_memory_alloc(g, N * sizeof(float));
-    vkgdr_memory_t Bmem = vkgdr_memory_alloc(g, N * sizeof(float));
-    vkgdr_memory_t Cmem = vkgdr_memory_alloc(g, N * sizeof(float));
+    vkgdr_memory_t Amem = vkgdr_memory_alloc(g, N * sizeof(float), 0);
+    vkgdr_memory_t Bmem = vkgdr_memory_alloc(g, N * sizeof(float), 0);
+    vkgdr_memory_t Cmem = vkgdr_memory_alloc(g, N * sizeof(float), 0);
     assert(Amem);
     assert(Bmem);
     assert(Cmem);

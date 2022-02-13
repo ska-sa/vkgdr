@@ -24,7 +24,7 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags);
 vkgdr_t vkgdr_open_current(uint32_t flags);
 void vkgdr_close(vkgdr_t g);
 
-vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size);
+vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags);
 void vkgdr_memory_free(vkgdr_memory_t mem);
 
 void *vkgdr_memory_get_host(vkgdr_memory_t mem);
