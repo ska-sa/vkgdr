@@ -1,0 +1,57 @@
+#include <cassert>
+#include <iostream>
+#include "vkgdr.h"
+
+// Kernel definition
+__global__ void VecAdd(float* A, float* B, float* C)
+{
+    int i = threadIdx.x;
+    C[i] = A[i] + B[i];
+}
+
+int main()
+{
+    const int N = 64;
+    float *d_A, *d_B, *d_C;
+    float *h_A, *h_B, *h_C;
+
+    // Call cuda to initialise the primary context
+    cudaMalloc((void **) &d_C, N * sizeof(float));
+    cudaFree(d_C);
+
+    vkgdr_t g = vkgdr_open_current();
+    assert(g);
+    vkgdr_memory_t Amem = vkgdr_malloc(g, N * sizeof(float));
+    vkgdr_memory_t Bmem = vkgdr_malloc(g, N * sizeof(float));
+    vkgdr_memory_t Cmem = vkgdr_malloc(g, N * sizeof(float));
+    assert(Amem);
+    assert(Bmem);
+    assert(Cmem);
+    h_A = (float *) vkgdr_get_host(Amem);
+    h_B = (float *) vkgdr_get_host(Bmem);
+    h_C = (float *) vkgdr_get_host(Cmem);
+    d_A = (float *) vkgdr_get_device(Amem);
+    d_B = (float *) vkgdr_get_device(Bmem);
+    d_C = (float *) vkgdr_get_device(Cmem);
+    for (int i = 0; i < N; i++)
+    {
+        h_A[i] = 7 * i;
+        h_B[i] = -3 * i;
+        h_C[i] = 0;
+    }
+
+    VecAdd<<<1, N>>>(d_A, d_B, d_C);
+    cudaDeviceSynchronize();
+
+    for (int i = 0; i < N; i++)
+    {
+        std::cout << h_C[i] << ' ';
+    }
+    std::cout << '\n';
+
+    vkgdr_free(Amem);
+    vkgdr_free(Bmem);
+    vkgdr_free(Cmem);
+    vkgdr_close(g);
+    return 0;
+}
