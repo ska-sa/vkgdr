@@ -19,7 +19,7 @@ int main()
     cudaMalloc((void **) &d_C, N * sizeof(float));
     cudaFree(d_C);
 
-    vkgdr_t g = vkgdr_open_current(0);
+    vkgdr_t g = vkgdr_open(0, VKGDR_OPEN_CURRENT_CONTEXT_BIT);
     assert(g);
     vkgdr_memory_t Amem = vkgdr_memory_alloc(g, N * sizeof(float), 0);
     vkgdr_memory_t Bmem = vkgdr_memory_alloc(g, N * sizeof(float), 0);

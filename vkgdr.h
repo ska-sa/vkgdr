@@ -16,12 +16,13 @@ typedef struct vkgdr_memory *vkgdr_memory_t;
 
 typedef enum vkgdr_open_flags
 {
+    // Ignore the given device and use the current CUDA context instead
+    VKGDR_OPEN_CURRENT_CONTEXT_BIT = 1,
     // Treat the memory as non-coherent even if it is coherent (for debugging only)
-    VKGDR_OPEN_FORCE_NON_COHERENT_BIT = 1
+    VKGDR_OPEN_FORCE_NON_COHERENT_BIT = 2,
 } vkgdr_open_flags;
 
 vkgdr_t vkgdr_open(CUdevice device, uint32_t flags);
-vkgdr_t vkgdr_open_current(uint32_t flags);
 void vkgdr_close(vkgdr_t g);
 
 vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags);

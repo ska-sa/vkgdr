@@ -13,15 +13,32 @@
 #include <dlfcn.h>
 #include "vkgdr.h"
 
+typedef CUresult (CUDAAPI *PFN_cuCtxGetDevice)(CUdevice *);
+typedef CUresult (CUDAAPI *PFN_cuDestroyExternalMemory)(CUexternalMemory);
+typedef CUresult (CUDAAPI *PFN_cuDeviceGetUuid)(CUuuid *, CUdevice);
+typedef CUresult (CUDAAPI *PFN_cuExternalMemoryGetMappedBuffer)(CUdeviceptr *, CUexternalMemory, const CUDA_EXTERNAL_MEMORY_BUFFER_DESC *);
+typedef CUresult (CUDAAPI *PFN_cuImportExternalMemory)(CUexternalMemory *, const CUDA_EXTERNAL_MEMORY_HANDLE_DESC *);
+// _v2 suffix is because CUDA headers internally #define cuMemFree to cuMemFree_v2 (v1 used unsigned int for device pointers)
+typedef CUresult (CUDAAPI *PFN_cuMemFree_v2)(CUdeviceptr);
+
 struct vkgdr
 {
     void *libvulkan_handle;
+    void *libcuda_handle;
     VkInstance instance;
     VkPhysicalDevice phys_device;
     VkDevice device;
     uint32_t memory_type;
     bool coherent;
     size_t non_coherent_atom_size;
+
+    // The CUDA functions have a fn_ prefix to avoid being mangled by #defines in cuda.h
+    PFN_cuCtxGetDevice fn_cuCtxGetDevice;
+    PFN_cuDestroyExternalMemory fn_cuDestroyExternalMemory;
+    PFN_cuDeviceGetUuid fn_cuDeviceGetUuid;
+    PFN_cuExternalMemoryGetMappedBuffer fn_cuExternalMemoryGetMappedBuffer;
+    PFN_cuImportExternalMemory fn_cuImportExternalMemory;
+    PFN_cuMemFree_v2 fn_cuMemFree_v2;
 
     // Instance functions
     PFN_vkDestroyInstance vkDestroyInstance;
@@ -51,9 +68,13 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
     void *libvulkan_handle = dlopen("libvulkan.so.1", RTLD_LAZY | RTLD_LOCAL);
     if (!libvulkan_handle)
         goto fail;
+    void *libcuda_handle = dlopen("libcuda.so.1", RTLD_LAZY | RTLD_LOCAL);
+    if (!libcuda_handle)
+        goto close_libvulkan;
+
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(libvulkan_handle, "vkGetInstanceProcAddr");
-#define INIT_INSTANCE_PFN(instance, name) PFN_ ## name name = (PFN_ ## name) vkGetInstanceProcAddr((instance), #name)
-    INIT_INSTANCE_PFN(NULL, vkCreateInstance);
+#define INIT_VK_INSTANCE_PFN(instance, name) PFN_ ## name name = (PFN_ ## name) vkGetInstanceProcAddr((instance), #name)
+    INIT_VK_INSTANCE_PFN(NULL, vkCreateInstance);
 
     vkgdr_t out;
     const VkApplicationInfo application_info =
@@ -71,19 +92,33 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
 
     out = calloc(1, sizeof(struct vkgdr));
     out->libvulkan_handle = libvulkan_handle;
+    out->libcuda_handle = libcuda_handle;
     if (vkCreateInstance(&instance_info, NULL, &out->instance) != VK_SUCCESS)
         goto free_out;
 
-    INIT_INSTANCE_PFN(out->instance, vkEnumeratePhysicalDevices);
-    INIT_INSTANCE_PFN(out->instance, vkGetPhysicalDeviceProperties2);
-    INIT_INSTANCE_PFN(out->instance, vkCreateDevice);
-    INIT_INSTANCE_PFN(out->instance, vkGetPhysicalDeviceProperties);
-    INIT_INSTANCE_PFN(out->instance, vkGetPhysicalDeviceMemoryProperties);
-    INIT_INSTANCE_PFN(out->instance, vkDestroyInstance);
-    INIT_INSTANCE_PFN(out->instance, vkGetDeviceProcAddr);
+    INIT_VK_INSTANCE_PFN(out->instance, vkEnumeratePhysicalDevices);
+    INIT_VK_INSTANCE_PFN(out->instance, vkGetPhysicalDeviceProperties2);
+    INIT_VK_INSTANCE_PFN(out->instance, vkCreateDevice);
+    INIT_VK_INSTANCE_PFN(out->instance, vkGetPhysicalDeviceProperties);
+    INIT_VK_INSTANCE_PFN(out->instance, vkGetPhysicalDeviceMemoryProperties);
+    INIT_VK_INSTANCE_PFN(out->instance, vkDestroyInstance);
+    INIT_VK_INSTANCE_PFN(out->instance, vkGetDeviceProcAddr);
+
+#define INIT_CU_PFN(out, name) (out)->fn_ ## name = (PFN_ ## name) dlsym(libcuda_handle, #name)
+    INIT_CU_PFN(out, cuCtxGetDevice);
+    INIT_CU_PFN(out, cuDestroyExternalMemory);
+    INIT_CU_PFN(out, cuDeviceGetUuid);
+    INIT_CU_PFN(out, cuExternalMemoryGetMappedBuffer);
+    INIT_CU_PFN(out, cuImportExternalMemory);
+    INIT_CU_PFN(out, cuMemFree_v2);
 
     // Find the matching Vulkan physical device
-    if (cuDeviceGetUuid(&uuid, device) != CUDA_SUCCESS)
+    if (flags & VKGDR_OPEN_CURRENT_CONTEXT_BIT)
+    {
+        if (out->fn_cuCtxGetDevice(&device) != CUDA_SUCCESS)
+            goto destroy_instance;
+    }
+    if (out->fn_cuDeviceGetUuid(&uuid, device) != CUDA_SUCCESS)
         goto destroy_instance;
 
     uint32_t n_devices;
@@ -167,15 +202,15 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
     out->phys_device = phys_device;
 
     out->vkDestroyInstance = vkDestroyInstance;
-#define INIT_DEVICE_PFN(out, name) (out)->name = (PFN_ ## name) vkGetDeviceProcAddr((out)->device, #name)
-    INIT_DEVICE_PFN(out, vkAllocateMemory);
-    INIT_DEVICE_PFN(out, vkDestroyDevice);
-    INIT_DEVICE_PFN(out, vkFlushMappedMemoryRanges);
-    INIT_DEVICE_PFN(out, vkFreeMemory);
-    INIT_DEVICE_PFN(out, vkGetMemoryFdKHR);
-    INIT_DEVICE_PFN(out, vkInvalidateMappedMemoryRanges);
-    INIT_DEVICE_PFN(out, vkMapMemory);
-    INIT_DEVICE_PFN(out, vkUnmapMemory);
+#define INIT_VK_DEVICE_PFN(out, name) (out)->name = (PFN_ ## name) vkGetDeviceProcAddr((out)->device, #name)
+    INIT_VK_DEVICE_PFN(out, vkAllocateMemory);
+    INIT_VK_DEVICE_PFN(out, vkDestroyDevice);
+    INIT_VK_DEVICE_PFN(out, vkFlushMappedMemoryRanges);
+    INIT_VK_DEVICE_PFN(out, vkFreeMemory);
+    INIT_VK_DEVICE_PFN(out, vkGetMemoryFdKHR);
+    INIT_VK_DEVICE_PFN(out, vkInvalidateMappedMemoryRanges);
+    INIT_VK_DEVICE_PFN(out, vkMapMemory);
+    INIT_VK_DEVICE_PFN(out, vkUnmapMemory);
     return out;
 
 free_devices:
@@ -184,18 +219,13 @@ destroy_instance:
     vkDestroyInstance(out->instance, NULL);
 free_out:
     free(out);
+    dlclose(libcuda_handle);
+close_libvulkan:
     dlclose(libvulkan_handle);
 fail:
     return NULL;
-#undef INIT_INSTANCE_PFN
-}
-
-vkgdr_t vkgdr_open_current(uint32_t flags)
-{
-    CUdevice device;
-    if (cuCtxGetDevice(&device) != CUDA_SUCCESS)
-        return NULL;
-    return vkgdr_open(device, flags);
+#undef INIT_VK_INSTANCE_PFN
+#undef INIT_VK_DEVICE_PFN
 }
 
 void vkgdr_close(vkgdr_t g)
@@ -204,6 +234,7 @@ void vkgdr_close(vkgdr_t g)
     {
         g->vkDestroyDevice(g->device, NULL);
         g->vkDestroyInstance(g->instance, NULL);
+        dlclose(g->libcuda_handle);
         dlclose(g->libvulkan_handle);
         free(g);
     }
@@ -255,19 +286,19 @@ vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
         .size = size,
         .flags = 0
     };
-    if (cuImportExternalMemory(&out->ext_mem, &ext_desc) != CUDA_SUCCESS)
+    if (g->fn_cuImportExternalMemory(&out->ext_mem, &ext_desc) != CUDA_SUCCESS)
     {
         close(fd);
         goto unmap_memory;
     }
     fd = -1;  // CUDA has taken ownership
-    if (cuExternalMemoryGetMappedBuffer(&out->device_ptr, out->ext_mem, &buffer_desc) != CUDA_SUCCESS)
+    if (g->fn_cuExternalMemoryGetMappedBuffer(&out->device_ptr, out->ext_mem, &buffer_desc) != CUDA_SUCCESS)
         goto destroy_external;
 
     return out;
 
 destroy_external:
-    cuDestroyExternalMemory(out->ext_mem);
+    g->fn_cuDestroyExternalMemory(out->ext_mem);
 unmap_memory:
     g->vkUnmapMemory(g->device, out->memory);
 free_memory:
@@ -281,10 +312,11 @@ void vkgdr_memory_free(vkgdr_memory_t mem)
 {
     if (mem)
     {
-        cuMemFree(mem->device_ptr);
-        cuDestroyExternalMemory(mem->ext_mem);
-        mem->owner->vkUnmapMemory(mem->owner->device, mem->memory);
-        mem->owner->vkFreeMemory(mem->owner->device, mem->memory, NULL);
+        vkgdr_t g = mem->owner;
+        g->fn_cuMemFree_v2(mem->device_ptr);
+        g->fn_cuDestroyExternalMemory(mem->ext_mem);
+        g->vkUnmapMemory(g->device, mem->memory);
+        g->vkFreeMemory(g->device, mem->memory, NULL);
         free(mem);
     }
 }

@@ -2,7 +2,7 @@ CC = gcc
 NVCC = nvcc
 CFLAGS = -Wall -g -I/usr/local/cuda/include
 NVCCFLAGS =
-LIBS = -L/usr/local/cuda/lib -lcuda
+LIBS = -ldl
 TARGETS = libvkgdr.so libvkgdr.so.1 vkgdr_test
 
 all: $(TARGETS)
