@@ -1,3 +1,5 @@
+#define VK_NO_PROTOTYPES 1  /* Prevents Vulkan headers from defining functions to link to */
+
 #include <unistd.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -5,19 +7,33 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <dlfcn.h>
 #include <cuda.h>
 #include <vulkan/vulkan.h>
+#include <dlfcn.h>
 #include "vkgdr.h"
 
 struct vkgdr
 {
+    void *libvulkan_handle;
     VkInstance instance;
     VkPhysicalDevice phys_device;
     VkDevice device;
     uint32_t memory_type;
     bool coherent;
     size_t non_coherent_atom_size;
+
+    // Instance functions
+    PFN_vkDestroyInstance vkDestroyInstance;
+    // Device-specific functions
+    PFN_vkAllocateMemory vkAllocateMemory;
+    PFN_vkDestroyDevice vkDestroyDevice;
+    PFN_vkFlushMappedMemoryRanges vkFlushMappedMemoryRanges;
+    PFN_vkFreeMemory vkFreeMemory;
     PFN_vkGetMemoryFdKHR vkGetMemoryFdKHR;
+    PFN_vkInvalidateMappedMemoryRanges vkInvalidateMappedMemoryRanges;
+    PFN_vkMapMemory vkMapMemory;
+    PFN_vkUnmapMemory vkUnmapMemory;
 };
 
 struct vkgdr_memory
@@ -32,6 +48,13 @@ struct vkgdr_memory
 
 vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
 {
+    void *libvulkan_handle = dlopen("libvulkan.so.1", RTLD_LAZY | RTLD_LOCAL);
+    if (!libvulkan_handle)
+        goto fail;
+    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(libvulkan_handle, "vkGetInstanceProcAddr");
+#define INIT_INSTANCE_PFN(instance, name) PFN_ ## name name = (PFN_ ## name) vkGetInstanceProcAddr((instance), #name)
+    INIT_INSTANCE_PFN(NULL, vkCreateInstance);
+
     vkgdr_t out;
     const VkApplicationInfo application_info =
     {
@@ -47,8 +70,17 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
     CUuuid uuid;
 
     out = calloc(1, sizeof(struct vkgdr));
+    out->libvulkan_handle = libvulkan_handle;
     if (vkCreateInstance(&instance_info, NULL, &out->instance) != VK_SUCCESS)
         goto free_out;
+
+    INIT_INSTANCE_PFN(out->instance, vkEnumeratePhysicalDevices);
+    INIT_INSTANCE_PFN(out->instance, vkGetPhysicalDeviceProperties2);
+    INIT_INSTANCE_PFN(out->instance, vkCreateDevice);
+    INIT_INSTANCE_PFN(out->instance, vkGetPhysicalDeviceProperties);
+    INIT_INSTANCE_PFN(out->instance, vkGetPhysicalDeviceMemoryProperties);
+    INIT_INSTANCE_PFN(out->instance, vkDestroyInstance);
+    INIT_INSTANCE_PFN(out->instance, vkGetDeviceProcAddr);
 
     // Find the matching Vulkan physical device
     if (cuDeviceGetUuid(&uuid, device) != CUDA_SUCCESS)
@@ -133,8 +165,17 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
 
     free(devices);
     out->phys_device = phys_device;
-    out->vkGetMemoryFdKHR = (PFN_vkGetMemoryFdKHR) vkGetDeviceProcAddr(out->device, "vkGetMemoryFdKHR");
-    assert(out->vkGetMemoryFdKHR);
+
+    out->vkDestroyInstance = vkDestroyInstance;
+#define INIT_DEVICE_PFN(out, name) (out)->name = (PFN_ ## name) vkGetDeviceProcAddr((out)->device, #name)
+    INIT_DEVICE_PFN(out, vkAllocateMemory);
+    INIT_DEVICE_PFN(out, vkDestroyDevice);
+    INIT_DEVICE_PFN(out, vkFlushMappedMemoryRanges);
+    INIT_DEVICE_PFN(out, vkFreeMemory);
+    INIT_DEVICE_PFN(out, vkGetMemoryFdKHR);
+    INIT_DEVICE_PFN(out, vkInvalidateMappedMemoryRanges);
+    INIT_DEVICE_PFN(out, vkMapMemory);
+    INIT_DEVICE_PFN(out, vkUnmapMemory);
     return out;
 
 free_devices:
@@ -143,7 +184,10 @@ destroy_instance:
     vkDestroyInstance(out->instance, NULL);
 free_out:
     free(out);
+    dlclose(libvulkan_handle);
+fail:
     return NULL;
+#undef INIT_INSTANCE_PFN
 }
 
 vkgdr_t vkgdr_open_current(uint32_t flags)
@@ -158,8 +202,9 @@ void vkgdr_close(vkgdr_t g)
 {
     if (g)
     {
-        vkDestroyDevice(g->device, NULL);
-        vkDestroyInstance(g->instance, NULL);
+        g->vkDestroyDevice(g->device, NULL);
+        g->vkDestroyInstance(g->instance, NULL);
+        dlclose(g->libvulkan_handle);
         free(g);
     }
 }
@@ -180,12 +225,12 @@ vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
         .memoryTypeIndex = g->memory_type
     };
     vkgdr_memory_t out = calloc(1, sizeof(struct vkgdr_memory));
-    if (vkAllocateMemory(g->device, &info, NULL, &out->memory) != VK_SUCCESS)
+    if (g->vkAllocateMemory(g->device, &info, NULL, &out->memory) != VK_SUCCESS)
         goto free_out;
     out->owner = g;
     out->size = size;
 
-    if (vkMapMemory(g->device, out->memory, 0, VK_WHOLE_SIZE, 0, &out->host_ptr) != VK_SUCCESS)
+    if (g->vkMapMemory(g->device, out->memory, 0, VK_WHOLE_SIZE, 0, &out->host_ptr) != VK_SUCCESS)
         goto free_memory;
 
     int fd = -1;
@@ -224,9 +269,9 @@ vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
 destroy_external:
     cuDestroyExternalMemory(out->ext_mem);
 unmap_memory:
-    vkUnmapMemory(g->device, out->memory);
+    g->vkUnmapMemory(g->device, out->memory);
 free_memory:
-    vkFreeMemory(g->device, out->memory, NULL);
+    g->vkFreeMemory(g->device, out->memory, NULL);
 free_out:
     free(out);
     return NULL;
@@ -238,8 +283,8 @@ void vkgdr_memory_free(vkgdr_memory_t mem)
     {
         cuMemFree(mem->device_ptr);
         cuDestroyExternalMemory(mem->ext_mem);
-        vkUnmapMemory(mem->owner->device, mem->memory);
-        vkFreeMemory(mem->owner->device, mem->memory, NULL);
+        mem->owner->vkUnmapMemory(mem->owner->device, mem->memory);
+        mem->owner->vkFreeMemory(mem->owner->device, mem->memory, NULL);
         free(mem);
     }
 }
@@ -280,7 +325,7 @@ void vkgdr_memory_flush(vkgdr_memory_t mem, size_t offset, size_t size)
             .offset = offset,
             .size = size
         };
-        vkFlushMappedMemoryRanges(mem->owner->device, 1, &range);
+        mem->owner->vkFlushMappedMemoryRanges(mem->owner->device, 1, &range);
     }
 }
 
@@ -295,6 +340,6 @@ void vkgdr_memory_invalidate(vkgdr_memory_t mem, size_t offset, size_t size)
             .offset = offset,
             .size = size
         };
-        vkInvalidateMappedMemoryRanges(mem->owner->device, 1, &range);
+        mem->owner->vkInvalidateMappedMemoryRanges(mem->owner->device, 1, &range);
     }
 }
