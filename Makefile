@@ -1,6 +1,6 @@
 CC = gcc
 NVCC = nvcc
-CFLAGS = -Wall -g -I/usr/local/cuda/include
+CFLAGS = -Wall -g -I/usr/local/cuda/include -fvisibility=hidden
 NVCCFLAGS =
 LIBS = -ldl
 TARGETS = libvkgdr.so libvkgdr.so.1 vkgdr_test
