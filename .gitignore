@@ -1,3 +1,7 @@
-libvkgdr.so.1
-libvkgdr.so
-vkgdr_test
+/vkgdr_test
+/build
+vkgdr.egg-info
+__pycache__
+*.o
+*.so
+*.so.1

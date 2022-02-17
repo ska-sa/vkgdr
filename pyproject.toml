@@ -1,0 +1,18 @@
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+    "cffi",
+    "katversion",
+    "setuptools_scm[toml]==6.4.2"   # Just for producing the manifest, not versioning
+]
+
+[tool.cibuildwheel]
+build-frontend = "build"
+before-all = "manylinux/before_all.sh"
+manylinux-x86_64-image = "manylinux2014"
+manylinux-i686-image = "manylinux2014"
+build = ["cp37*"]   # Uses limited API, so only one version needed
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64"]
