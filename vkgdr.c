@@ -163,12 +163,15 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
         "VK_KHR_external_memory_fd",
         "VK_EXT_external_memory_dma_buf"
     };
+    int n_extensions = sizeof(extensions) / sizeof(extensions[0]);
+    if (!(flags & VKGDR_OPEN_DMA_BUF_BIT))
+        n_extensions--;  // exclude VK_EXT_external_memory_dma_buf
     const VkDeviceCreateInfo device_info =
     {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .queueCreateInfoCount = (flags & VKGDR_OPEN_DMA_BUF_BIT) ? 2 : 1,
+        .queueCreateInfoCount = sizeof(queue_infos) / sizeof(queue_infos[0]),
         .pQueueCreateInfos = queue_infos,
-        .enabledExtensionCount = sizeof(extensions) / sizeof(extensions[0]),
+        .enabledExtensionCount = n_extensions,
         .ppEnabledExtensionNames = extensions
     };
     if (vkCreateDevice(phys_device, &device_info, NULL, &out->device) != VK_SUCCESS)
