@@ -1,7 +1,8 @@
 from cffi import FFI
 
 ffibuilder = FFI()
-ffibuilder.cdef(r"""
+ffibuilder.cdef(
+    r"""
     typedef ... *vkgdr_t;
     typedef ... *vkgdr_memory_t;
     typedef int... CUdevice;
@@ -28,14 +29,15 @@ ffibuilder.cdef(r"""
 
     void vkgdr_memory_flush(vkgdr_memory_t mem, size_t offset, size_t size);
     void vkgdr_memory_invalidate(vkgdr_memory_t mem, size_t offset, size_t size);
-""")
+"""
+)
 
 ffibuilder.set_source(
     "vkgdr._vkgdr",
     '#include "vkgdr.h"',
     include_dirs=[".", "/usr/local/cuda/include"],
     sources=["vkgdr.c"],
-    libraries=["dl"]
+    libraries=["dl"],
 )
 
 if __name__ == "__main__":

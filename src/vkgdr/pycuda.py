@@ -20,7 +20,7 @@ class Memory(pycuda.driver.PointerHolderBase, vkgdr.RawMemory):
     def free(self) -> None:
         context = self._context
         if context is None:
-            return   # We've already freed
+            return  # We've already freed
         context.push()
         try:
             super().free()

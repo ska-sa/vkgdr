@@ -1,4 +1,9 @@
-from ._vkgdr.lib import VKGDR_OPEN_CURRENT_CONTEXT_BIT, VKGDR_OPEN_FORCE_NON_COHERENT_BIT
+from typing import Type, TypeVar
+
+from ._vkgdr import ffi, lib
+from ._vkgdr.lib import VKGDR_OPEN_CURRENT_CONTEXT_BIT, VKGDR_OPEN_FORCE_NON_COHERENT_BIT  # noqa: F401
+
+_V = TypeVar("_V", bound="Vkgdr")
 
 
 # BEGIN VERSION CHECK
@@ -7,9 +12,10 @@ try:
     import katversion as _katversion
 except ImportError:
     import time as _time
-    __version__ = "0.0+unknown.{}".format(_time.strftime('%Y%m%d%H%M'))
+
+    __version__ = "0.0+unknown.{}".format(_time.strftime("%Y%m%d%H%M"))
 else:
-    __version__ = _katversion.get_version(__path__[0])    # type: ignore
+    __version__ = _katversion.get_version(__path__[0])  # type: ignore
 # END VERSION CHECK
 
 
@@ -19,13 +25,13 @@ class VkgdrError(RuntimeError):
 
 class Vkgdr:
     def __init__(self, device: int, flags: int = 0) -> None:
-        handle = _vkgdr.lib.vkgdr_open(device, flags)
+        handle = lib.vkgdr_open(device, flags)
         if not handle:
             raise VkgdrError("vkgdr_open failed")
-        self._handle = _vkgdr.ffi.gc(handle, _vkgdr.lib.vkgdr_close)
+        self._handle = ffi.gc(handle, lib.vkgdr_close)
 
     @classmethod
-    def open_current_context(cls, flags: int = 0) -> None:
+    def open_current_context(cls: Type[_V], flags: int = 0) -> _V:
         return cls(0, flags | VKGDR_OPEN_CURRENT_CONTEXT_BIT)
 
 
@@ -41,19 +47,19 @@ class RawMemory:
     def __init__(self, owner: Vkgdr, size: int, flags: int = 0) -> None:
         self._handle: object = None  # So that __del__ won't fall apart if allocation fails
         self._owner_handle = owner._handle  # Keeps it alive
-        handle = _vkgdr.lib.vkgdr_memory_alloc(owner._handle, size, flags)
+        handle = lib.vkgdr_memory_alloc(owner._handle, size, flags)
         if not handle:
             raise VkgdrError("vkgdr_memory_alloc failed")
         self._handle = handle
         # Ensure that it can be called even during interpreter shutdown, when
         # module globals might already have been cleared.
-        self._free = _vkgdr.lib.vkgdr_memory_free
-        host_ptr = _vkgdr.lib.vkgdr_memory_get_host_ptr(self._handle)
+        self._free = lib.vkgdr_memory_free
+        host_ptr = lib.vkgdr_memory_get_host_ptr(self._handle)
         self.__array_interface__ = dict(
             shape=(size,),
             typestr="|V1",
-            data=(int(_vkgdr.ffi.cast("uintptr_t", host_ptr)), False),  # False means R/W
-            version=3
+            data=(int(ffi.cast("uintptr_t", host_ptr)), False),  # False means R/W
+            version=3,
         )
 
     def free(self) -> None:
@@ -69,21 +75,21 @@ class RawMemory:
 
     @property
     def device_ptr(self) -> int:
-        return _vkgdr.lib.vkgdr_memory_get_device_ptr(self._handle)
+        return lib.vkgdr_memory_get_device_ptr(self._handle)
 
     def __len__(self) -> int:
-        return _vkgdr.lib.vkgdr_memory_get_size(self._handle)
+        return lib.vkgdr_memory_get_size(self._handle)
 
     @property
     def is_coherent(self) -> bool:
-        return _vkgdr.lib.vkgdr_memory_is_coherent(self._handle)
+        return lib.vkgdr_memory_is_coherent(self._handle)
 
     @property
     def non_coherent_atom_size(self) -> int:
-        return _vkgdr.lib.vkgdr_memory_non_coherent_atom_size(self._handle)
+        return lib.vkgdr_memory_non_coherent_atom_size(self._handle)
 
     def flush(self, offset: int, size: int) -> None:
-        _vkgdr.lib.vkgdr_memory_flush(self._handle, offset, size)
+        lib.vkgdr_memory_flush(self._handle, offset, size)
 
     def invalidate(self, offset: int, size: int) -> None:
-        _vkgdr.lib.vkgdr_memory_invalidate(self._handle, offset, size)
+        lib.vkgdr_memory_invalidate(self._handle, offset, size)
