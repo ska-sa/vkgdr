@@ -321,12 +321,12 @@ void vkgdr_memory_free(vkgdr_memory_t mem)
     }
 }
 
-void *vkgdr_memory_get_host(vkgdr_memory_t mem)
+void *vkgdr_memory_get_host_ptr(vkgdr_memory_t mem)
 {
     return mem->host_ptr;
 }
 
-CUdeviceptr vkgdr_memory_get_device(vkgdr_memory_t mem)
+CUdeviceptr vkgdr_memory_get_device_ptr(vkgdr_memory_t mem)
 {
     return mem->device_ptr;
 }

@@ -27,12 +27,12 @@ int main()
     assert(Amem);
     assert(Bmem);
     assert(Cmem);
-    h_A = (float *) vkgdr_memory_get_host(Amem);
-    h_B = (float *) vkgdr_memory_get_host(Bmem);
-    h_C = (float *) vkgdr_memory_get_host(Cmem);
-    d_A = (float *) vkgdr_memory_get_device(Amem);
-    d_B = (float *) vkgdr_memory_get_device(Bmem);
-    d_C = (float *) vkgdr_memory_get_device(Cmem);
+    h_A = (float *) vkgdr_memory_get_host_ptr(Amem);
+    h_B = (float *) vkgdr_memory_get_host_ptr(Bmem);
+    h_C = (float *) vkgdr_memory_get_host_ptr(Cmem);
+    d_A = (float *) vkgdr_memory_get_device_ptr(Amem);
+    d_B = (float *) vkgdr_memory_get_device_ptr(Bmem);
+    d_C = (float *) vkgdr_memory_get_device_ptr(Cmem);
     for (int i = 0; i < N; i++)
     {
         h_A[i] = 7 * i;

@@ -40,7 +40,7 @@ class Memory(pycuda.driver.PointerHolderBase):
         if not handle:
             raise VkgdrError("vkgdr_memory_alloc failed")
         self._handle = handle
-        host_ptr = _vkgdr.lib.vkgdr_memory_get_host(self._handle)
+        host_ptr = _vkgdr.lib.vkgdr_memory_get_host_ptr(self._handle)
         self.__array_interface__ = dict(
             shape=(size,),
             typestr="|V1",
@@ -61,7 +61,7 @@ class Memory(pycuda.driver.PointerHolderBase):
             self._context.pop()
 
     def get_pointer(self) -> int:
-        return _vkgdr.lib.vkgdr_memory_get_device(self._handle)
+        return _vkgdr.lib.vkgdr_memory_get_device_ptr(self._handle)
 
     def __len__(self) -> int:
         return _vkgdr.lib.vkgdr_memory_get_size(self._handle)

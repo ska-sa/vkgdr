@@ -20,8 +20,8 @@ ffibuilder.cdef(r"""
     vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags);
     void vkgdr_memory_free(vkgdr_memory_t mem);
 
-    void *vkgdr_memory_get_host(vkgdr_memory_t mem);
-    CUdeviceptr vkgdr_memory_get_device(vkgdr_memory_t mem);
+    void *vkgdr_memory_get_host_ptr(vkgdr_memory_t mem);
+    CUdeviceptr vkgdr_memory_get_device_ptr(vkgdr_memory_t mem);
     size_t vkgdr_memory_get_size(vkgdr_memory_t mem);
     bool vkgdr_memory_is_coherent(vkgdr_memory_t mem);
     size_t vkgdr_memory_non_coherent_atom_size(vkgdr_memory_t mem);

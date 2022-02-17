@@ -30,8 +30,8 @@ VKGDR_API void vkgdr_close(vkgdr_t g);
 VKGDR_API vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags);
 VKGDR_API void vkgdr_memory_free(vkgdr_memory_t mem);
 
-VKGDR_API void *vkgdr_memory_get_host(vkgdr_memory_t mem);
-VKGDR_API CUdeviceptr vkgdr_memory_get_device(vkgdr_memory_t mem);
+VKGDR_API void *vkgdr_memory_get_host_ptr(vkgdr_memory_t mem);
+VKGDR_API CUdeviceptr vkgdr_memory_get_device_ptr(vkgdr_memory_t mem);
 VKGDR_API size_t vkgdr_memory_get_size(vkgdr_memory_t mem);
 VKGDR_API bool vkgdr_memory_is_coherent(vkgdr_memory_t mem);
 VKGDR_API size_t vkgdr_memory_non_coherent_atom_size(vkgdr_memory_t mem);
