@@ -1,5 +1,3 @@
-import pycuda
-from ._vkgdr import ffi, lib
 from ._vkgdr.lib import VKGDR_OPEN_CURRENT_CONTEXT_BIT, VKGDR_OPEN_FORCE_NON_COHERENT_BIT
 
 
@@ -31,15 +29,25 @@ class Vkgdr:
         return cls(0, flags | VKGDR_OPEN_CURRENT_CONTEXT_BIT)
 
 
-class Memory(pycuda.driver.PointerHolderBase):
+class RawMemory:
+    """Low-level memory allocation.
+
+    This should generally not be used directly, as it requires the memory
+    to be explicitly freed (otherwise it will leak). Use an API-specific
+    wrapper like :class:`vkgdr.pycuda.Memory` for safe garbage
+    collection.
+    """
+
     def __init__(self, owner: Vkgdr, size: int, flags: int = 0) -> None:
-        super().__init__()
+        self._handle: object = None  # So that __del__ won't fall apart if allocation fails
         self._owner_handle = owner._handle  # Keeps it alive
-        self._context = pycuda.driver.Context.get_current()  # Keeps it alive
         handle = _vkgdr.lib.vkgdr_memory_alloc(owner._handle, size, flags)
         if not handle:
             raise VkgdrError("vkgdr_memory_alloc failed")
         self._handle = handle
+        # Ensure that it can be called even during interpreter shutdown, when
+        # module globals might already have been cleared.
+        self._free = _vkgdr.lib.vkgdr_memory_free
         host_ptr = _vkgdr.lib.vkgdr_memory_get_host_ptr(self._handle)
         self.__array_interface__ = dict(
             shape=(size,),
@@ -48,19 +56,19 @@ class Memory(pycuda.driver.PointerHolderBase):
             version=3
         )
 
-    def __del__(self, _free=_vkgdr.lib.vkgdr_memory_free) -> None:
-        # Would be cleaner to use ffi.gc on the handle, but then there is
-        # nothing to guarantee that our _handle will be GCed before the
-        # owner's handle once the wrapper objects are GCed.
-        self._context.push()
-        try:
-            _free(self._handle)
-        finally:
-            # A static method, but the class name might be inaccessible
-            # when the interpreter is shutting down.
-            self._context.pop()
+    def free(self) -> None:
+        """Free the memory.
 
-    def get_pointer(self) -> int:
+        This must be called with the same CUDA context active that was used
+        to allocate the memory.
+        """
+        if self._handle:
+            self._free(self._handle)
+            self._handle = None
+            self._owner_handle = None
+
+    @property
+    def device_ptr(self) -> int:
         return _vkgdr.lib.vkgdr_memory_get_device_ptr(self._handle)
 
     def __len__(self) -> int:
