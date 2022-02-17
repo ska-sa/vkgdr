@@ -159,11 +159,14 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
             .pQueuePriorities = queue_priorities
         }
     };
-    const char * const extensions[] = {"VK_KHR_external_memory_fd"};
+    const char * const extensions[] = {
+        "VK_KHR_external_memory_fd",
+        "VK_EXT_external_memory_dma_buf"
+    };
     const VkDeviceCreateInfo device_info =
     {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .queueCreateInfoCount = 1,
+        .queueCreateInfoCount = (flags & VKGDR_OPEN_DMA_BUF_BIT) ? 2 : 1,
         .pQueueCreateInfos = queue_infos,
         .enabledExtensionCount = sizeof(extensions) / sizeof(extensions[0]),
         .ppEnabledExtensionNames = extensions
@@ -246,7 +249,9 @@ vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
     VkExportMemoryAllocateInfo export_info =
     {
         .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
-        .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+        .handleTypes =
+            VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+            | (flags & VKGDR_MEMORY_ALLOC_DMA_BUF_BIT ? VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT : 0)
     };
     VkMemoryAllocateInfo info =
     {
@@ -374,4 +379,19 @@ void vkgdr_memory_invalidate(vkgdr_memory_t mem, size_t offset, size_t size)
         };
         mem->owner->vkInvalidateMappedMemoryRanges(mem->owner->device, 1, &range);
     }
+}
+
+int vkgdr_memory_export_dma_buf(vkgdr_memory_t mem)
+{
+    int fd = -1;
+    VkMemoryGetFdInfoKHR fd_info =
+    {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
+        .memory = mem->memory,
+        .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
+    };
+    vkgdr_t g = mem->owner;
+    if (g->vkGetMemoryFdKHR(g->device, &fd_info, &fd) != VK_SUCCESS)
+        return -1;
+    return fd;
 }
