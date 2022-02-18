@@ -32,6 +32,8 @@ ffibuilder.cdef(
         ...
     } vkgdr_open_flags;
 
+    char *vkgdr_last_error(void);
+
     vkgdr_t vkgdr_open(CUdevice device, uint32_t flags);
     void vkgdr_close(vkgdr_t g);
 
@@ -46,6 +48,8 @@ ffibuilder.cdef(
 
     void vkgdr_memory_flush(vkgdr_memory_t mem, size_t offset, size_t size);
     void vkgdr_memory_invalidate(vkgdr_memory_t mem, size_t offset, size_t size);
+
+    void free(void *);
 """
 )
 

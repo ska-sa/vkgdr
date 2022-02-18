@@ -16,12 +16,17 @@
 
 #define VK_NO_PROTOTYPES 1  /* Prevents Vulkan headers from defining functions to link to */
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+
 #include <unistd.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <cuda.h>
@@ -79,14 +84,150 @@ struct vkgdr_memory
     CUdeviceptr device_ptr;
 };
 
+struct error_state
+{
+    const char *msg;  // NULL if there is no error
+    VkResult vk_result;
+    CUresult cu_result;
+};
+
+static __thread struct error_state last_error;
+
+static void clear_last_error()
+{
+    last_error.msg = NULL;
+}
+
+static void set_generic_error(const char *msg)
+{
+    last_error.msg = msg;
+    last_error.vk_result = VK_SUCCESS;
+    last_error.cu_result = CUDA_SUCCESS;
+}
+
+static void set_vk_error(const char *msg, VkResult result)
+{
+    last_error.msg = msg;
+    last_error.vk_result = result;
+    last_error.cu_result = CUDA_SUCCESS;
+}
+
+static void set_cu_error(const char *msg, CUresult result)
+{
+    last_error.msg = msg;
+    last_error.vk_result = VK_SUCCESS;
+    last_error.cu_result = result;
+}
+
+char *vkgdr_last_error(void)
+{
+#define CASE(x) case x: name = #x; break
+    char *out;
+    if (last_error.msg == NULL)
+        return NULL;
+    else if (last_error.vk_result != VK_SUCCESS)
+    {
+        const char *name;
+        switch (last_error.vk_result)
+        {
+            // Not a complete list of Vulkan errors, but should cover the likely ones
+            CASE(VK_NOT_READY);
+            CASE(VK_TIMEOUT);
+            CASE(VK_ERROR_OUT_OF_HOST_MEMORY);
+            CASE(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+            CASE(VK_ERROR_INITIALIZATION_FAILED);
+            CASE(VK_ERROR_DEVICE_LOST);
+            CASE(VK_ERROR_MEMORY_MAP_FAILED);
+            CASE(VK_ERROR_LAYER_NOT_PRESENT);
+            CASE(VK_ERROR_EXTENSION_NOT_PRESENT);
+            CASE(VK_ERROR_FEATURE_NOT_PRESENT);
+            CASE(VK_ERROR_INCOMPATIBLE_DRIVER);
+            CASE(VK_ERROR_TOO_MANY_OBJECTS);
+            CASE(VK_ERROR_UNKNOWN);
+            CASE(VK_ERROR_OUT_OF_POOL_MEMORY);
+            CASE(VK_ERROR_INVALID_EXTERNAL_HANDLE);
+            default: name = NULL; break;
+        }
+        if (name)
+            asprintf(&out, "%s (%s)", last_error.msg, name);
+        else
+            asprintf(&out, "%s (unknown Vulkan error %d)", last_error.msg, (int) last_error.vk_result);
+    }
+    else if (last_error.cu_result != CUDA_SUCCESS)
+    {
+        const char *name;
+        switch (last_error.cu_result)
+        {
+            /* Not a complete list, but should cover the likely cases
+             * (cuGetErrorName would be better, but we don't necessarily have
+             * the dynamic library open here).
+             */
+            CASE(CUDA_ERROR_INVALID_VALUE);
+            CASE(CUDA_ERROR_OUT_OF_MEMORY);
+            CASE(CUDA_ERROR_NOT_INITIALIZED);
+            CASE(CUDA_ERROR_DEINITIALIZED);
+            CASE(CUDA_ERROR_STUB_LIBRARY);
+            CASE(CUDA_ERROR_NO_DEVICE);
+            CASE(CUDA_ERROR_INVALID_DEVICE);
+            CASE(CUDA_ERROR_DEVICE_NOT_LICENSED);
+            CASE(CUDA_ERROR_INVALID_CONTEXT);
+            CASE(CUDA_ERROR_MAP_FAILED);
+            CASE(CUDA_ERROR_UNMAP_FAILED);
+            CASE(CUDA_ERROR_ALREADY_MAPPED);
+            CASE(CUDA_ERROR_ALREADY_ACQUIRED);
+            CASE(CUDA_ERROR_NOT_MAPPED);
+            CASE(CUDA_ERROR_NOT_MAPPED_AS_POINTER);
+            CASE(CUDA_ERROR_ECC_UNCORRECTABLE);
+            CASE(CUDA_ERROR_PEER_ACCESS_UNSUPPORTED);
+            CASE(CUDA_ERROR_NVLINK_UNCORRECTABLE);
+            CASE(CUDA_ERROR_FILE_NOT_FOUND);
+            CASE(CUDA_ERROR_OPERATING_SYSTEM);
+            CASE(CUDA_ERROR_INVALID_HANDLE);
+            CASE(CUDA_ERROR_ILLEGAL_STATE);
+            CASE(CUDA_ERROR_PRIMARY_CONTEXT_ACTIVE);
+            CASE(CUDA_ERROR_CONTEXT_IS_DESTROYED);
+            CASE(CUDA_ERROR_TOO_MANY_PEERS);
+            CASE(CUDA_ERROR_NOT_PERMITTED);
+            CASE(CUDA_ERROR_NOT_SUPPORTED);
+            CASE(CUDA_ERROR_SYSTEM_NOT_READY);
+            CASE(CUDA_ERROR_SYSTEM_DRIVER_MISMATCH);
+            CASE(CUDA_ERROR_COMPAT_NOT_SUPPORTED_ON_DEVICE);
+            CASE(CUDA_ERROR_TIMEOUT);
+            CASE(CUDA_ERROR_EXTERNAL_DEVICE);
+            CASE(CUDA_ERROR_UNKNOWN);
+            default: name = NULL; break;
+        }
+        if (name)
+            asprintf(&out, "%s (%s)", last_error.msg, name);
+        else
+            asprintf(&out, "%s (unknown CUDA error %d)", last_error.msg, (int) last_error.cu_result);
+    }
+    else
+    {
+        out = strdup(last_error.msg);
+    }
+    return out;
+#undef CASE
+}
+
 vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
 {
+    VkResult vk_result;
+    CUresult cu_result;
+    clear_last_error();
+
     void *libvulkan_handle = dlopen("libvulkan.so.1", RTLD_LAZY | RTLD_LOCAL);
     if (!libvulkan_handle)
+    {
+        set_generic_error(dlerror());
         goto fail;
+    }
     void *libcuda_handle = dlopen("libcuda.so.1", RTLD_LAZY | RTLD_LOCAL);
     if (!libcuda_handle)
+    {
+        set_generic_error(dlerror());
         goto close_libvulkan;
+    }
 
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(libvulkan_handle, "vkGetInstanceProcAddr");
 #define INIT_VK_INSTANCE_PFN(instance, name) PFN_ ## name name = (PFN_ ## name) vkGetInstanceProcAddr((instance), #name)
@@ -109,8 +250,11 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
     out = calloc(1, sizeof(struct vkgdr));
     out->libvulkan_handle = libvulkan_handle;
     out->libcuda_handle = libcuda_handle;
-    if (vkCreateInstance(&instance_info, NULL, &out->instance) != VK_SUCCESS)
+    if ((vk_result = vkCreateInstance(&instance_info, NULL, &out->instance)) != VK_SUCCESS)
+    {
+        set_vk_error("vkCreateInstance failed", vk_result);
         goto free_out;
+    }
 
     INIT_VK_INSTANCE_PFN(out->instance, vkEnumeratePhysicalDevices);
     INIT_VK_INSTANCE_PFN(out->instance, vkGetPhysicalDeviceProperties2);
@@ -131,18 +275,35 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
     // Find the matching Vulkan physical device
     if (flags & VKGDR_OPEN_CURRENT_CONTEXT_BIT)
     {
-        if (out->fn_cuCtxGetDevice(&device) != CUDA_SUCCESS)
+        if ((cu_result = out->fn_cuCtxGetDevice(&device)) != CUDA_SUCCESS)
+        {
+            set_cu_error("cuCtxGetDevice failed", cu_result);
             goto destroy_instance;
+        }
     }
-    if (out->fn_cuDeviceGetUuid(&uuid, device) != CUDA_SUCCESS)
+    if ((cu_result = out->fn_cuDeviceGetUuid(&uuid, device)) != CUDA_SUCCESS)
+    {
+        set_cu_error("cuDeviceGetUuid failed", cu_result);
         goto destroy_instance;
+    }
 
     uint32_t n_devices;
-    if (vkEnumeratePhysicalDevices(out->instance, &n_devices, NULL) != VK_SUCCESS)
+    if ((vk_result = vkEnumeratePhysicalDevices(out->instance, &n_devices, NULL)) != VK_SUCCESS)
+    {
+        set_vk_error("vkEnumeratePhysicalDevices failed", vk_result);
         goto destroy_instance;
+    }
     VkPhysicalDevice *devices = calloc(n_devices, sizeof(VkPhysicalDevice));
-    if (vkEnumeratePhysicalDevices(out->instance, &n_devices, devices) != VK_SUCCESS)
+    if (devices == NULL)
+    {
+        set_generic_error("failed to allocate memory for device list");
+        goto destroy_instance;
+    }
+    if ((vk_result = vkEnumeratePhysicalDevices(out->instance, &n_devices, devices)) != VK_SUCCESS)
+    {
+        set_vk_error("vkEnumeratePhysicalDevices failed", vk_result);
         goto free_devices;
+    }
     VkPhysicalDevice phys_device = VK_NULL_HANDLE;
     for (uint32_t i = 0; i < n_devices; i++)
     {
@@ -163,7 +324,10 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
         }
     }
     if (phys_device == VK_NULL_HANDLE)
+    {
+        set_generic_error("no Vulkan device matching the CUDA device found");
         goto free_devices;
+    }
 
     const float queue_priorities[] = {1.0f};
     const VkDeviceQueueCreateInfo queue_infos[] =
@@ -184,8 +348,12 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
         .enabledExtensionCount = sizeof(extensions) / sizeof(extensions[0]),
         .ppEnabledExtensionNames = extensions
     };
-    if (vkCreateDevice(phys_device, &device_info, NULL, &out->device) != VK_SUCCESS)
+    // TODO: check for the extensions instead of bumbling ahead
+    if ((vk_result = vkCreateDevice(phys_device, &device_info, NULL, &out->device)) != VK_SUCCESS)
+    {
+        set_vk_error("vkCreateDevice failed", vk_result);
         goto free_devices;
+    }
 
     VkPhysicalDeviceMemoryProperties memory_properties = {};
     vkGetPhysicalDeviceMemoryProperties(phys_device, &memory_properties);
@@ -199,7 +367,10 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
             break;
     }
     if (i == memory_properties.memoryTypeCount)
-        goto free_devices;  // no suitable memory type found
+    {
+        set_generic_error("Vulkan device does not provide a suitable memory type");
+        goto free_devices;
+    }
     out->memory_type = i;
     if ((memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
         && !(flags & VKGDR_OPEN_FORCE_NON_COHERENT_BIT))
@@ -259,6 +430,10 @@ void vkgdr_close(vkgdr_t g)
 
 vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
 {
+    VkResult vk_result;
+    CUresult cu_result;
+
+    clear_last_error();
     // TODO: only supports Linux
     VkExportMemoryAllocateInfo export_info =
     {
@@ -273,14 +448,19 @@ vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
         .memoryTypeIndex = g->memory_type
     };
     vkgdr_memory_t out = calloc(1, sizeof(struct vkgdr_memory));
-    if (g->vkAllocateMemory(g->device, &info, NULL, &out->memory) != VK_SUCCESS)
+    if ((vk_result = g->vkAllocateMemory(g->device, &info, NULL, &out->memory)) != VK_SUCCESS)
+    {
+        set_vk_error("vkAllocateMemory failed", vk_result);
         goto free_out;
+    }
     out->owner = g;
     out->size = size;
 
-    if (g->vkMapMemory(g->device, out->memory, 0, VK_WHOLE_SIZE, 0, &out->host_ptr) != VK_SUCCESS)
+    if ((vk_result = g->vkMapMemory(g->device, out->memory, 0, VK_WHOLE_SIZE, 0, &out->host_ptr)) != VK_SUCCESS)
+    {
+        set_vk_error("vkMapMemory failed", vk_result);
         goto free_memory;
-
+    }
     int fd = -1;
     VkMemoryGetFdInfoKHR fd_info =
     {
@@ -288,8 +468,11 @@ vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
         .memory = out->memory,
         .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
     };
-    if (g->vkGetMemoryFdKHR(g->device, &fd_info, &fd) != VK_SUCCESS)
+    if ((vk_result = g->vkGetMemoryFdKHR(g->device, &fd_info, &fd)) != VK_SUCCESS)
+    {
+        set_vk_error("vkGetMemoryFdKHR failed", vk_result);
         goto unmap_memory;
+    }
 
     const CUDA_EXTERNAL_MEMORY_HANDLE_DESC ext_desc =
     {
@@ -303,14 +486,18 @@ vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
         .size = size,
         .flags = 0
     };
-    if (g->fn_cuImportExternalMemory(&out->ext_mem, &ext_desc) != CUDA_SUCCESS)
+    if ((cu_result = g->fn_cuImportExternalMemory(&out->ext_mem, &ext_desc)) != CUDA_SUCCESS)
     {
         close(fd);
+        set_cu_error("cuImportExternalMemory failed", cu_result);
         goto unmap_memory;
     }
     fd = -1;  // CUDA has taken ownership
-    if (g->fn_cuExternalMemoryGetMappedBuffer(&out->device_ptr, out->ext_mem, &buffer_desc) != CUDA_SUCCESS)
+    if ((cu_result = g->fn_cuExternalMemoryGetMappedBuffer(&out->device_ptr, out->ext_mem, &buffer_desc)) != CUDA_SUCCESS)
+    {
+        set_cu_error("cuExternalMemoryGetMappedBuffer failed", cu_result);
         goto destroy_external;
+    }
 
     return out;
 

@@ -42,6 +42,13 @@ typedef enum vkgdr_open_flags
     VKGDR_OPEN_REQUIRE_COHERENT_BIT = 4
 } vkgdr_open_flags;
 
+/**
+ * Get the error (if any) from the previous call to vkgdr_open or
+ * vkgdr_memory_alloc in the current thread.  If the last call was successful,
+ * returns @c NULL. The caller is responsible for freeing the return value.
+ */
+VKGDR_API char *vkgdr_last_error(void);
+
 VKGDR_API vkgdr_t vkgdr_open(CUdevice device, uint32_t flags);
 VKGDR_API void vkgdr_close(vkgdr_t g);
 

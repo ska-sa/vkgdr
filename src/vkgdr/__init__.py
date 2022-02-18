@@ -43,11 +43,21 @@ class VkgdrError(RuntimeError):
     pass
 
 
+def _raise_vkgdr_error():
+    err = lib.vkgdr_last_error()
+    if not err:
+        msg = "unknown error"
+    else:
+        msg = ffi.string(err).decode("utf-8", errors="replace")
+        lib.free(err)
+    raise VkgdrError(msg)
+
+
 class Vkgdr:
     def __init__(self, device: int, flags: int = 0) -> None:
         handle = lib.vkgdr_open(device, flags)
         if not handle:
-            raise VkgdrError("vkgdr_open failed")
+            _raise_vkgdr_error()
         self._handle = ffi.gc(handle, lib.vkgdr_close)
 
     @classmethod
@@ -69,7 +79,7 @@ class RawMemory:
         self._owner_handle = owner._handle  # Keeps it alive
         handle = lib.vkgdr_memory_alloc(owner._handle, size, flags)
         if not handle:
-            raise VkgdrError("vkgdr_memory_alloc failed")
+            _raise_vkgdr_error()
         self._handle = handle
         # Ensure that it can be called even during interpreter shutdown, when
         # module globals might already have been cleared.

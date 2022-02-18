@@ -16,7 +16,7 @@
 
 CC = gcc
 NVCC = nvcc
-CFLAGS = -Wall -g -I/usr/local/cuda/include -fvisibility=hidden
+CFLAGS = -Wall -g -I/usr/local/cuda/include -fPIC -fvisibility=hidden
 NVCCFLAGS =
 LIBS = -ldl
 TARGETS = libvkgdr.so libvkgdr.so.1 vkgdr_test
@@ -26,8 +26,9 @@ all: $(TARGETS)
 libvkgdr.so.1: vkgdr.c vkgdr.h Makefile
 	$(CC) $(CFLAGS) -shared -Wl,-soname,libvkgdr.so.1 -o $@ $< $(LIBS)
 
-libvkgdr.so:
-	ln -s libvkgdr.so.1 libvkgdr.so
+libvkgdr.so: libvkgdr.so.1
+	rm -f $@
+	ln -s $< $@
 
 vkgdr_test: vkgdr_test.cu vkgdr.h libvkgdr.so Makefile
 	$(NVCC) $(NVCCFLAGS) -o $@ $< -Xlinker -rpath,$(PWD) -L. -lvkgdr
