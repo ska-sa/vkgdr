@@ -12,6 +12,7 @@ ffibuilder.cdef(
     {
         VKGDR_OPEN_CURRENT_CONTEXT_BIT,
         VKGDR_OPEN_FORCE_NON_COHERENT_BIT,
+        VKGDR_OPEN_REQUIRE_COHERENT_BIT,
         ...
     } vkgdr_open_flags;
 

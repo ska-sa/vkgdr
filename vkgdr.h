@@ -22,6 +22,8 @@ typedef enum vkgdr_open_flags
     VKGDR_OPEN_CURRENT_CONTEXT_BIT = 1,
     // Treat the memory as non-coherent even if it is coherent (for debugging only)
     VKGDR_OPEN_FORCE_NON_COHERENT_BIT = 2,
+    // Fail unless memory is guaranteed to be coherent
+    VKGDR_OPEN_REQUIRE_COHERENT_BIT = 4
 } vkgdr_open_flags;
 
 VKGDR_API vkgdr_t vkgdr_open(CUdevice device, uint32_t flags);

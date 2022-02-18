@@ -174,11 +174,12 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
     VkPhysicalDeviceMemoryProperties memory_properties = {};
     vkGetPhysicalDeviceMemoryProperties(phys_device, &memory_properties);
     uint32_t i;
+    VkMemoryPropertyFlags require = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    if (flags & VKGDR_OPEN_REQUIRE_COHERENT_BIT)
+        require |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     for (i = 0; i < memory_properties.memoryTypeCount; i++)
     {
-        const VkMemoryType *t = &memory_properties.memoryTypes[i];
-        const VkMemoryPropertyFlags require = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-        if ((t->propertyFlags & require) == require)
+        if ((memory_properties.memoryTypes[i].propertyFlags & require) == require)
             break;
     }
     if (i == memory_properties.memoryTypeCount)

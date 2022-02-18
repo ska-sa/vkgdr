@@ -1,7 +1,11 @@
 from typing import Type, TypeVar
 
 from ._vkgdr import ffi, lib
-from ._vkgdr.lib import VKGDR_OPEN_CURRENT_CONTEXT_BIT, VKGDR_OPEN_FORCE_NON_COHERENT_BIT  # noqa: F401
+from ._vkgdr.lib import (  # noqa: F401
+    VKGDR_OPEN_CURRENT_CONTEXT_BIT,
+    VKGDR_OPEN_FORCE_NON_COHERENT_BIT,
+    VKGDR_OPEN_REQUIRE_COHERENT_BIT,
+)
 
 _V = TypeVar("_V", bound="Vkgdr")
 
