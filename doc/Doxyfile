@@ -1,0 +1,13 @@
+# Doxyfile 1.8.17
+
+PROJECT_NAME           = "vkgdr"
+OUTPUT_DIRECTORY       = doxygen
+OPTIMIZE_OUTPUT_FOR_C  = YES
+INPUT                  = ../
+GENERATE_HTML          = NO
+GENERATE_LATEX         = NO
+GENERATE_XML           = YES
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = VKGDR_API=
