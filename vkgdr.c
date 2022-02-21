@@ -143,7 +143,8 @@ char *vkgdr_last_error(void)
             CASE(VK_ERROR_FEATURE_NOT_PRESENT);
             CASE(VK_ERROR_INCOMPATIBLE_DRIVER);
             CASE(VK_ERROR_TOO_MANY_OBJECTS);
-            CASE(VK_ERROR_UNKNOWN);
+            // Defined in Vulkan 1.0, but missing from the CentOS 7 header file
+            case -13: name = "VK_ERROR_UNKNOWN"; break;
             CASE(VK_ERROR_OUT_OF_POOL_MEMORY);
             CASE(VK_ERROR_INVALID_EXTERNAL_HANDLE);
             default: name = NULL; break;
