@@ -1,5 +1,6 @@
 /vkgdr_test
 /build
+/wheelhouse
 vkgdr.egg-info
 __pycache__
 *.o
