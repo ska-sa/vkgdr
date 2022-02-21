@@ -35,6 +35,7 @@ version = release
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "breathe",
 ]
@@ -46,6 +47,8 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+
+autodoc_member_order = "bysource"
 
 breathe_projects = {"vkgdr": "./doxygen/xml"}
 breathe_default_project = "vkgdr"

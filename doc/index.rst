@@ -12,6 +12,7 @@ Welcome to vkgdr's documentation!
 
    intro
    c_api
+   python_api
 
 
 Indices and tables

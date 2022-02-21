@@ -64,7 +64,7 @@ vkgdr supports both. You should either
 
 - flush and invalidate memory ranges as necessary for correctness; or
 
-- pass the :c:const:`VKGDR_OPEN_REQUIRE_COHERENT` flag when creating the Vkgdr
+- pass the :c:enumerator:`VKGDR_OPEN_REQUIRE_COHERENT` flag when creating the Vkgdr
   object.
 
 Additionally, device work must be synchronised with the CPU to ensure that the

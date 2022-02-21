@@ -43,15 +43,15 @@ def test_no_current_context() -> None:
         vkgdr.Vkgdr.open_current_context()
 
 
-@pytest.mark.parametrize("flags", [0, vkgdr.VKGDR_OPEN_REQUIRE_COHERENT_BIT, vkgdr.VKGDR_OPEN_FORCE_NON_COHERENT_BIT])
+@pytest.mark.parametrize("flags", [0, vkgdr.OpenFlags.REQUIRE_COHERENT_BIT, vkgdr.OpenFlags.FORCE_NON_COHERENT_BIT])
 def test_basic(context: pycuda.driver.Context, flags: int) -> None:
     n = 4097
     g = vkgdr.Vkgdr.open_current_context(flags)
     mem = vkgdr.pycuda.Memory(g, n)
     assert len(mem) == n
-    if flags == vkgdr.VKGDR_OPEN_FORCE_NON_COHERENT_BIT:
+    if flags == vkgdr.OpenFlags.FORCE_NON_COHERENT_BIT:
         assert not mem.is_coherent
-    elif vkgdr.VKGDR_OPEN_REQUIRE_COHERENT_BIT:
+    elif vkgdr.OpenFlags.REQUIRE_COHERENT_BIT:
         assert mem.is_coherent
     assert mem.non_coherent_atom_size > 0  # Just checks that the property can be retrieved
 

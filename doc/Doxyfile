@@ -4,9 +4,12 @@ PROJECT_NAME           = "vkgdr"
 OUTPUT_DIRECTORY       = doxygen
 OPTIMIZE_OUTPUT_FOR_C  = YES
 INPUT                  = ../
+FILE_PATTERNS          = *.h
+WARN_IF_UNDOCUMENTED   = NO
 GENERATE_HTML          = NO
 GENERATE_LATEX         = NO
 GENERATE_XML           = YES
+# Get rid of VKGDR_API from generated docs
 ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES

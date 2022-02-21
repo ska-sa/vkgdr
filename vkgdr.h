@@ -32,8 +32,14 @@ extern "C" {
 #define VKGDR_API __attribute__((visibility("default")))
 
 struct vkgdr;
+/**
+ * Opaque handle to the library.
+ */
 typedef struct vkgdr *vkgdr_t;
 struct vkgdr_memory;
+/**
+ * Opaque handle to a memory allocation.
+ */
 typedef struct vkgdr_memory *vkgdr_memory_t;
 
 /**
@@ -116,6 +122,7 @@ VKGDR_API size_t vkgdr_memory_non_coherent_atom_size(vkgdr_memory_t mem);
 /**
  * Flush host writes so that they are visible to the device.
  *
+ * @param mem    Memory handle returned by @ref vkgdr_memory_alloc
  * @param offset Offset in bytes to the first byte to flush.
  * @param size   Size in bytes of the region to flush.
  *
@@ -130,12 +137,13 @@ VKGDR_API void vkgdr_memory_flush(vkgdr_memory_t mem, size_t offset, size_t size
  * Invalidate host view of device memory so that previous device writes are
  * visible to the host.
  *
+ * @param mem    Memory handle returned by @ref vkgdr_memory_alloc
  * @param offset Offset in bytes to the first byte to invalidate.
  * @param size   Size in bytes of the region to invalidate.
  *
  * @warning @a offset and @a size must be multiples of the value returned by
  * @ref vkgdr_memory_non_coherent_atom_size (except where @a offset + @a size
- * corresponds to the end of the memory allocation). Failing to observer this
+ * corresponds to the end of the memory allocation). Failing to observe this
  * has undefined behaviour.
  */
 VKGDR_API void vkgdr_memory_invalidate(vkgdr_memory_t mem, size_t offset, size_t size);
