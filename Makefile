@@ -19,7 +19,7 @@ NVCC = nvcc
 CFLAGS = -Wall -g -I/usr/local/cuda/include -fPIC -fvisibility=hidden
 NVCCFLAGS =
 LIBS = -ldl
-TARGETS = libvkgdr.so libvkgdr.so.1 vkgdr_test
+TARGETS = libvkgdr.so libvkgdr.so.1 examples/vkgdr_example
 
 all: $(TARGETS)
 
@@ -30,8 +30,8 @@ libvkgdr.so: libvkgdr.so.1
 	rm -f $@
 	ln -s $< $@
 
-vkgdr_test: vkgdr_test.cu vkgdr.h libvkgdr.so Makefile
-	$(NVCC) $(NVCCFLAGS) -o $@ $< -Xlinker -rpath,$(PWD) -L. -lvkgdr
+examples/vkgdr_example: examples/vkgdr_example.cu vkgdr.h libvkgdr.so Makefile
+	$(NVCC) $(NVCCFLAGS) -o $@ $< -Xlinker -rpath,$(PWD) -I. -L. -lvkgdr
 
 clean:
 	rm -f $(TARGETS)
