@@ -181,24 +181,31 @@ class RawMemory:
     def flush(self, offset: int, size: int) -> None:
         """Flush host writes so that they are visible to the device.
 
+        .. warning::
+
+            `offset` and `size` must be multiples of
+            :attr:`non_coherent_atom_size` (except where `offset` + `size`
+            corresponds to the end of the memory allocation).
+            Failing to observe this has undefined behaviour.
+
         Parameters
         ----------
         offset
             Offset in bytes to the first byte to flush.
         size
             Size in bytes of the region to flush.
-
-        .. warning::
-
-            `offset` and `size` must be multiples of the value returned by
-            :meth:`non_coherent_atom_size` (except where `offset` + `size`
-            corresponds to the end of the memory allocation).
-            Failing to observe this has undefined behaviour.
         """
         lib.vkgdr_memory_flush(self._handle, offset, size)
 
     def invalidate(self, offset: int, size: int) -> None:
         """Invalidate host view of device memory so that previous device writes are visible to the host.
+
+        .. warning::
+
+            `offset` and `size` must be multiples of
+            :attr:`non_coherent_atom_size` (except where `offset` + `size`
+            corresponds to the end of the memory allocation).
+            Failing to observe this has undefined behaviour.
 
         Parameters
         ----------
@@ -206,12 +213,5 @@ class RawMemory:
             Offset in bytes to the first byte to invalidate.
         size
             Size in bytes of the region to invalidate.
-
-        .. warning::
-
-            `offset` and `size` must be multiples of the value returned by
-            :meth:`non_coherent_atom_size` (except where `offset` + `size`
-            corresponds to the end of the memory allocation).
-            Failing to observe this has undefined behaviour.
         """
         lib.vkgdr_memory_invalidate(self._handle, offset, size)

@@ -36,6 +36,7 @@ version = release
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "breathe",
 ]
@@ -52,6 +53,10 @@ autodoc_member_order = "bysource"
 
 breathe_projects = {"vkgdr": "./doxygen/xml"}
 breathe_default_project = "vkgdr"
+
+intersphinx_mapping = {
+    "pycuda": ("https://documen.tician.de/pycuda/", None),
+}
 
 # -- Options for HTML output -------------------------------------------------
 
