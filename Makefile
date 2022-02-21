@@ -16,12 +16,19 @@
 
 CC = gcc
 NVCC = nvcc
+INSTALL = install
 CFLAGS = -Wall -g -I/usr/local/cuda/include -fPIC -fvisibility=hidden
 NVCCFLAGS =
 LIBS = -ldl
 TARGETS = libvkgdr.so libvkgdr.so.1 examples/vkgdr_example
+DESTDIR = /
 
 all: $(TARGETS)
+
+install: libvkgdr.so vkgdr.h
+	$(INSTALL) -m 644 vkgdr.h $(DESTDIR)/usr/local/include/
+	$(INSTALL) -s -m 755 libvkgdr.so.1 $(DESTDIR)/usr/local/lib/
+	ln -sf libvkgdr.so.1 $(DESTDIR)/usr/local/lib/libvkgdr.so
 
 libvkgdr.so.1: vkgdr.c vkgdr.h Makefile
 	$(CC) $(CFLAGS) -shared -Wl,-soname,libvkgdr.so.1 -o $@ $< $(LIBS)
