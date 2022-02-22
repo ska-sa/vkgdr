@@ -14,6 +14,8 @@
 # limitations under the License.
 ################################################################################
 
+"""CFFI build script."""
+
 from cffi import FFI
 
 ffibuilder = FFI()

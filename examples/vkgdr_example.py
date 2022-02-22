@@ -16,6 +16,12 @@
 # limitations under the License.
 ################################################################################
 
+"""Example program using vkgdr.
+
+It writes two arrays from the CPU, adds them on the GPU, then reads the
+results back on the CPU.
+"""
+
 import numpy as np
 import pycuda.autoinit
 import pycuda.gpuarray

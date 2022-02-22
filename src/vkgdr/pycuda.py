@@ -56,7 +56,7 @@ class Memory(pycuda.driver.PointerHolderBase, vkgdr.RawMemory):
         vkgdr.RawMemory.__init__(self, owner, size, flags)
         pycuda.driver.PointerHolderBase.__init__(self)
 
-    def get_pointer(self) -> int:  # PointerHolderBase interface
+    def get_pointer(self) -> int:  # PointerHolderBase interface  # noqa: D102
         return self.device_ptr
 
     def free(self) -> None:

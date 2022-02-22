@@ -1,3 +1,5 @@
+"""Tests for vkgdr."""
+
 from typing import Generator
 
 import numpy as np
@@ -21,11 +23,13 @@ DOUBLE_SOURCE = """
 
 @pytest.fixture(scope="session", autouse=True)
 def init_cuda() -> None:
+    """Initialise CUDA."""
     pycuda.driver.init()
 
 
 @pytest.fixture()
 def context() -> Generator[pycuda.driver.Context, None, None]:
+    """Provide a (current) pycuda context."""
     ctx = pycuda.tools.make_default_context()
     yield ctx
     ctx.pop()
@@ -45,6 +49,7 @@ def test_no_current_context() -> None:
 
 @pytest.mark.parametrize("flags", [0, vkgdr.OpenFlags.REQUIRE_COHERENT_BIT, vkgdr.OpenFlags.FORCE_NON_COHERENT_BIT])
 def test_basic(context: pycuda.driver.Context, flags: int) -> None:
+    """Test transfer to and from the device."""
     n = 4097
     g = vkgdr.Vkgdr.open_current_context(flags)
     mem = vkgdr.pycuda.Memory(g, n)
@@ -73,6 +78,7 @@ def test_basic(context: pycuda.driver.Context, flags: int) -> None:
 
 
 def test_explicit_free(context: pycuda.driver.Context) -> None:
+    """Test explicitly freeing memory."""
     n = 4097
     g = vkgdr.Vkgdr.open_current_context()
     mem = vkgdr.pycuda.Memory(g, n)
@@ -80,12 +86,14 @@ def test_explicit_free(context: pycuda.driver.Context) -> None:
 
 
 def test_out_of_memory(context: pycuda.driver.Context) -> None:
+    """Test that an exception is raised if asking for a silly amount of memory."""
     g = vkgdr.Vkgdr.open_current_context()
     with pytest.raises(vkgdr.VkgdrError, match="VK_ERROR_OUT_OF_DEVICE_MEMORY"):
         vkgdr.pycuda.Memory(g, 10**15)
 
 
 def test_alloc_without_context(context: pycuda.driver.Context) -> None:
+    """Test that an exception is raised if allocating without a context."""
     g = vkgdr.Vkgdr.open_current_context()
     context.pop()
     try:
