@@ -80,3 +80,7 @@ PCIe BAR size. On GeForce cards, this may only be 256 MiB, unless you have the
 MEMORY`` and looking at the statistics for "BAR1 memory usage".
 
 .. _resizable BAR: https://www.nvidia.com/en-us/geforce/news/geforce-rtx-30-series-resizable-bar-support/
+
+Also note that there is no internal memory pooling. If you need to make a large
+number of tiny allocations, it may be necessary to allocate larger chunks and
+subdivide them yourself.
