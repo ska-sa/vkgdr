@@ -31,7 +31,7 @@ class Memory(pycuda.driver.PointerHolderBase, vkgdr.RawMemory):
     API is likely to lead to segmentation faults.
 
     It can be pass as the `gpudata` kwarg to :class:`pycuda.gpuarray.GPUArray`
-    to wrap it into a GPUArray that can be used with pucuda.
+    to wrap it into a GPUArray that can be used with pycuda.
 
     Parameters
     ----------
