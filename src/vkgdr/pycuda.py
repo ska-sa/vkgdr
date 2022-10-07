@@ -30,7 +30,7 @@ class Memory(pycuda.driver.PointerHolderBase, vkgdr.RawMemory):
     being garbage collected, but explicitly destroying it through the pycuda
     API is likely to lead to segmentation faults.
 
-    It can be pass as the `gpudata` kwarg to :class:`pycuda.gpuarray.GPUArray`
+    It can be passed as the `gpudata` kwarg to :class:`pycuda.gpuarray.GPUArray`
     to wrap it into a GPUArray that can be used with pycuda.
 
     Parameters
