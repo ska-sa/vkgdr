@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2022, National Research Foundation (SARAO)
+ * Copyright (c) 2022-2023, National Research Foundation (SARAO)
  *
  * Licensed under the BSD 3-Clause License (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy
@@ -32,6 +32,10 @@
 #include <cuda.h>
 #include <vulkan/vulkan.h>
 #include <dlfcn.h>
+#if defined(__x86_64) && defined(__SSE2__)
+# define VKGDR_MEMCPY_STREAM_SSE 1
+# include <emmintrin.h>
+#endif
 #include "vkgdr.h"
 
 typedef CUresult (CUDAAPI *PFN_cuCtxGetDevice)(CUdevice *);
@@ -580,3 +584,60 @@ void vkgdr_memory_invalidate(vkgdr_memory_t mem, size_t offset, size_t size)
         mem->owner->vkInvalidateMappedMemoryRanges(mem->owner->device, 1, &range);
     }
 }
+
+#ifdef VKGDR_MEMCPY_STREAM_SSE
+
+void *vkgdr_memcpy_stream(void *dest, const void *src, size_t n)
+{
+    char * __restrict__ dest_c = (char *) dest;
+    const char * __restrict__ src_c = (const char *) src;
+    // Align the destination to a cache-line boundary. On
+    // x86-64 that generally means 64 bytes.
+    uintptr_t dest_i = (uintptr_t) dest_c;
+    const uintptr_t cache_line_mask = 64 - 1;
+    uintptr_t aligned = (dest_i + cache_line_mask) & ~cache_line_mask;
+    size_t head = aligned - dest_i;
+    if (head > 0)
+    {
+        if (head >= n)
+        {
+            memcpy(dest_c, src_c, n);
+            /* Not normally required, but if the destination is
+             * write-combining memory then this will flush the combining
+             * buffers. That may be necessary if the memory is actually on
+             * a GPU or other accelerator.
+             */
+            _mm_sfence();
+            return dest;
+        }
+        memcpy(dest_c, src_c, head);
+        dest_c += head;
+        src_c += head;
+        n -= head;
+    }
+    size_t offset;
+    for (offset = 0; offset + 64 <= n; offset += 64)
+    {
+        __m128i value0 = _mm_loadu_si128((__m128i const *) (src_c + offset + 0));
+        __m128i value1 = _mm_loadu_si128((__m128i const *) (src_c + offset + 16));
+        __m128i value2 = _mm_loadu_si128((__m128i const *) (src_c + offset + 32));
+        __m128i value3 = _mm_loadu_si128((__m128i const *) (src_c + offset + 48));
+        _mm_stream_si128((__m128i *) (dest_c + offset + 0), value0);
+        _mm_stream_si128((__m128i *) (dest_c + offset + 16), value1);
+        _mm_stream_si128((__m128i *) (dest_c + offset + 32), value2);
+        _mm_stream_si128((__m128i *) (dest_c + offset + 48), value3);
+    }
+    size_t tail = n - offset;
+    memcpy(dest_c + offset, src_c + offset, tail);
+    _mm_sfence();
+    return dest;
+}
+
+#else // VKGDR_MEMCPY_STREAM_SSE
+
+void *vkgdr_memcpy_stream(void *dest, const void *src, size_t n)
+{
+    return memcpy(dest, src, n);
+}
+
+#endif // VKGDR_MEMCPY_STREAM_SSE

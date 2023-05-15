@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2022, National Research Foundation (SARAO)
+ * Copyright (c) 2022-2023, National Research Foundation (SARAO)
  *
  * Licensed under the BSD 3-Clause License (the "License"); you may not use
  * this file except in compliance with the License. You may obtain a copy
@@ -147,6 +147,18 @@ VKGDR_API void vkgdr_memory_flush(vkgdr_memory_t mem, size_t offset, size_t size
  * has undefined behaviour.
  */
 VKGDR_API void vkgdr_memory_invalidate(vkgdr_memory_t mem, size_t offset, size_t size);
+
+/**
+ * Copy memory using streaming writes.
+ *
+ * This may give better performance when copying data from normal memory to
+ * vkgdr-mapped memory by using write combining. It should not be treated as a
+ * general-purpose memory copy.
+ *
+ * It is currently only implemented for x86-64. On other architectures the
+ * function can still be used but will simply call @c memcpy.
+ */
+VKGDR_API void *vkgdr_memcpy_stream(void *dest, const void *src, size_t n);
 
 #ifdef __cplusplus
 }

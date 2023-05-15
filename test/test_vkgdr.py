@@ -48,7 +48,8 @@ def test_no_current_context() -> None:
 
 
 @pytest.mark.parametrize("flags", [0, vkgdr.OpenFlags.REQUIRE_COHERENT_BIT, vkgdr.OpenFlags.FORCE_NON_COHERENT_BIT])
-def test_basic(context: pycuda.driver.Context, flags: int) -> None:
+@pytest.mark.parametrize("copy_mode", ["direct", "stream"])
+def test_basic(context: pycuda.driver.Context, flags: int, copy_mode: str) -> None:
     """Test transfer to and from the device."""
     n = 4097
     g = vkgdr.Vkgdr.open_current_context(flags)
@@ -63,7 +64,10 @@ def test_basic(context: pycuda.driver.Context, flags: int) -> None:
     array = np.asarray(mem).view(np.uint8)
     # Write some data to the memory, from the host
     in_data = np.random.default_rng(seed=1).integers(1, 128, (n,), np.uint8)
-    array[:] = in_data
+    if copy_mode == "direct":
+        array[:] = in_data
+    else:
+        vkgdr.memcpy_stream(array, in_data)
     mem.flush(0, n)
 
     # Process the data on the device
@@ -101,3 +105,19 @@ def test_alloc_without_context(context: pycuda.driver.Context) -> None:
             vkgdr.pycuda.Memory(g, 123)
     finally:
         context.push()  # To balance the pop in the fixture cleanup
+
+
+def test_memcpy_size_mismatch() -> None:
+    """Test that an exception is raised if the source and destination of memcpy have different sizes."""
+    dest = np.ones(5, np.int16)
+    src = np.ones(5, np.int8)
+    with pytest.raises(ValueError):
+        vkgdr.memcpy_stream(dest, src)
+
+
+def test_memcpy_readonly_dest() -> None:
+    """Test that an exception is raised if the destination is read-only."""
+    dest = b"hello"
+    src = b"world"
+    with pytest.raises(BufferError):
+        vkgdr.memcpy_stream(dest, src)

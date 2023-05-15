@@ -51,6 +51,8 @@ ffibuilder.cdef(
     void vkgdr_memory_flush(vkgdr_memory_t mem, size_t offset, size_t size);
     void vkgdr_memory_invalidate(vkgdr_memory_t mem, size_t offset, size_t size);
 
+    void *vkgdr_memcpy_stream(void *dest, const void *src, size_t n);
+
     void free(void *);
 """
 )

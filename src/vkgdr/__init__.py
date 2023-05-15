@@ -215,3 +215,20 @@ class RawMemory:
             Size in bytes of the region to invalidate.
         """
         lib.vkgdr_memory_invalidate(self._handle, offset, size)
+
+
+def memcpy_stream(dest: object, src: object) -> None:
+    """Copy memory from one buffer object to another using streaming writes.
+
+    This may give better performance when copying data from normal memory to
+    vkgdr-mapped memory by using write combining. It should not be treated as a
+    general-purpose memory copy.
+
+    It is currently only implemented for x86-64. On other architectures the
+    function can still be used but will simply call ``memcpy``.
+    """
+    with ffi.from_buffer(dest, require_writable=True) as dest_c:
+        with ffi.from_buffer(src) as src_c:
+            if len(dest_c) != len(src_c):
+                raise ValueError("buffers have different sizes")
+            lib.vkgdr_memcpy_stream(dest_c, src_c, len(dest_c))
