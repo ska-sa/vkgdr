@@ -5,7 +5,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   sdist:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -15,8 +15,8 @@ jobs:
           fetch-tags: true
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
-      - run: pip install build==0.8.0
+          python-version: '3.9'
+      - run: pip install build==1.2.0
       - run: python -m build --sdist .
       - uses: actions/upload-artifact@v4
         with:
@@ -24,7 +24,7 @@ jobs:
           path: ./dist/*.tar.gz
 
   wheel:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
