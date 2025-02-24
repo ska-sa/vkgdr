@@ -11,7 +11,7 @@ requires = [
 build-frontend = "build"
 before-all = "manylinux/before_all.sh"
 manylinux-x86_64-image = "manylinux_2_28"
-build = ["cp37-manylinux*"]   # Uses limited API, so only one version needed
+build = ["cp39-manylinux*"]   # Uses limited API, so only one version needed
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
