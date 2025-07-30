@@ -41,3 +41,13 @@ repos:
       - id: mypy
         args: []
         pass_filenames: false
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.8.3
+    hooks:
+      - id: pip-compile
+        args:
+          - --output-file=requirements.txt
+          - --extra=test
+          - --python-version=3.12
+          - setup.cfg
+        files: '^(setup\.cfg|requirements\.txt)$'
