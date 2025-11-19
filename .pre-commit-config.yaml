@@ -42,7 +42,7 @@ repos:
         args: []
         pass_filenames: false
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.9.5
+    rev: 0.9.8
     hooks:
       - id: pip-compile
         args:
