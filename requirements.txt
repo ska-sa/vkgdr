@@ -24,7 +24,7 @@ pycuda==2025.1.1
     # via vkgdr (setup.cfg)
 pygments==2.19.2
     # via pytest
-pytest==8.4.1
+pytest==9.0.2
     # via
     #   vkgdr (setup.cfg)
     #   pytest-custom-exit-code
