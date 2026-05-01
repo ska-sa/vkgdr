@@ -82,6 +82,3 @@ files = ["src/vkgdr", "test"]
 
 [tool.pytest.ini_options]
 testpaths = "test"
-filterwarnings = [
-       'ignore:`np\..*` is a deprecated alias::pycuda\.compyte\.dtypes',
-]
