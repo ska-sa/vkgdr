@@ -128,7 +128,7 @@ VKGDR_API size_t vkgdr_memory_non_coherent_atom_size(vkgdr_memory_t mem);
  *
  * @warning @a offset and @a size must be multiples of the value returned by
  * @ref vkgdr_memory_non_coherent_atom_size (except where @a offset + @a size
- * corresponds to the end of the memory allocation). Failing to observer this
+ * corresponds to the end of the memory allocation). Failing to observe this
  * has undefined behaviour.
  */
 VKGDR_API void vkgdr_memory_flush(vkgdr_memory_t mem, size_t offset, size_t size);
