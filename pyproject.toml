@@ -41,6 +41,11 @@ test = [
     "pycuda",
     "numpy",
 ]
+doc = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "breathe",
+]
 
 [tool.cibuildwheel]
 build-frontend = "build"

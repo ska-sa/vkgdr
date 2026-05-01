@@ -29,9 +29,17 @@ repos:
     rev: 0.11.8
     hooks:
       - id: pip-compile
+        name: pip-compile requirements.txt
         args:
           - --output-file=requirements.txt
           - --group=test
           - --python-version=3.12
-          - setup.cfg
-        files: '^(setup\.cfg|requirements\.txt)$'
+          - pyproject.toml
+        files: '^(pyproject\.toml|requirements\.txt)$'
+      - id: pip-compile
+        name: pip-compile requirements-readthedocs.txt
+        args:
+          - --output-file=requirements-readthedocs.txt
+          - --group=doc
+          - --python-version=3.10
+        files: '^(pyproject.toml|requirements-readthedocs\.txt)$'
