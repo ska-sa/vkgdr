@@ -51,12 +51,24 @@ build = ["cp310-manylinux*"]   # Uses limited API, so only one version needed
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
 
-[tool.black]
+[tool.ruff]
 line-length = 120
-
-[tool.isort]
-profile = "black"
-line_length = 120
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "C90",  # mccabe
+    "F",  # pyflakes
+    "I",  # isort
+    "D",  # pydocstyle
+    "B",  # flake8-bugbear
+    "N",  # pep8-naming
+    "UP",  # pyupgrade
+    "RUF100",  # Uncecessary noqa directives
+]
+extend-ignore = ["D105", "D107"]  # docstrings for magic methods
+exclude = ["setup.py"]
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
 
 [tool.mypy]
 python_version = "3.10"
