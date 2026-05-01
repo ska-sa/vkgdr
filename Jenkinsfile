@@ -19,13 +19,13 @@
  * packaging is done with Github Actions.
  */
 
- pipeline {
-   agent {
-     dockerfile {
-       label 'cuda'
-       dir '.ci'
-       registryCredentialsId 'dockerhub'  // Supply credentials to avoid rate limit
-       args '--runtime=nvidia'
+pipeline {
+  agent {
+    dockerfile {
+      label 'cuda'
+      dir '.ci'
+      registryCredentialsId 'dockerhub'  // Supply credentials to avoid rate limit
+      args '--runtime=nvidia'
     }
   }
 
