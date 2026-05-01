@@ -17,7 +17,7 @@
 """Parts of vkgdr that are independent of the CUDA bindings used."""
 
 import enum
-from typing import Type, TypeVar
+from typing import TypeVar
 
 from ._vkgdr import ffi, lib
 
@@ -89,7 +89,7 @@ class Vkgdr:
         self._handle = ffi.gc(handle, lib.vkgdr_close)
 
     @classmethod
-    def open_current_context(cls: Type[_V], flags: int = 0) -> _V:
+    def open_current_context(cls: type[_V], flags: int = 0) -> _V:
         """Construct an instance using the current CUDA context.
 
         This is a shortcut to pass :data:`OpenFlags.CURRENT_CONTEXT_BIT`

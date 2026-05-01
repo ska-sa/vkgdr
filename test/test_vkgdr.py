@@ -1,6 +1,6 @@
 """Tests for vkgdr."""
 
-from typing import Generator
+from collections.abc import Generator
 
 import numpy as np
 import pycuda.compiler
