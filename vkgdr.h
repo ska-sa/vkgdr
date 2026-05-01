@@ -52,8 +52,19 @@ typedef enum vkgdr_open_flags
     /// Treat the memory as non-coherent even if it is coherent (for debugging only)
     VKGDR_OPEN_FORCE_NON_COHERENT_BIT = 2,
     /// Fail unless memory is guaranteed to be coherent
-    VKGDR_OPEN_REQUIRE_COHERENT_BIT = 4
+    VKGDR_OPEN_REQUIRE_COHERENT_BIT = 4,
+    /// Allow obtaining dma_buf file descriptors
+    VKGDR_OPEN_DMA_BUF_BIT = 8,
 } vkgdr_open_flags;
+
+/**
+ * Valid flags to pass to @ref vkgdr_memory_alloc.
+ */
+typedef enum vkgdr_memory_alloc_flags
+{
+    /// Allow vkgdr_memory_get_dma_buf to be used on the allocated buffer
+    VKGDR_MEMORY_ALLOC_DMA_BUF_BIT = 1,
+} vkgdr_memory_alloc_flags;
 
 /**
  * Get the error (if any) from the previous call to @ref vkgdr_open or
@@ -90,7 +101,7 @@ VKGDR_API void vkgdr_close(vkgdr_t g);
  *
  * @param g     A handle obtained from @ref vkgdr_open
  * @param size  Number of bytes to allocate
- * @param flags Flags for future expansion; must be 0
+ * @param flags A bitwise combination of zero or more flags from @ref vkgdr_memory_alloc_flags
  *
  * @returns A handle to the memory allocation, or @c NULL on failure.
  *
@@ -111,6 +122,13 @@ VKGDR_API void *vkgdr_memory_get_host_ptr(vkgdr_memory_t mem);
 VKGDR_API CUdeviceptr vkgdr_memory_get_device_ptr(vkgdr_memory_t mem);
 /// Retrieve the size of a memory allocation.
 VKGDR_API size_t vkgdr_memory_get_size(vkgdr_memory_t mem);
+/**
+ * Retrieve the file descriptor for the dma-buf.
+ *
+ * This will fail and return -1 if @ref VKGDR_MEMORY_ALLOC_DMA_BUF_BIT was not
+ * passed when allocating the memory.
+ */
+VKGDR_API int vkgdr_memory_get_dma_buf_fd(vkgdr_memory_t mem);
 /// Determine whether a memory allocation is coherent from the host's point of view.
 VKGDR_API bool vkgdr_memory_is_coherent(vkgdr_memory_t mem);
 /**

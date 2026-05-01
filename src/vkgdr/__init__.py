@@ -39,6 +39,15 @@ class OpenFlags(enum.IntEnum):
     FORCE_NON_COHERENT_BIT = lib.VKGDR_OPEN_FORCE_NON_COHERENT_BIT
     #: Fail unless memory is guaranteed to be coherent.
     REQUIRE_COHERENT_BIT = lib.VKGDR_OPEN_REQUIRE_COHERENT_BIT
+    #: Allow obtaining dma_buf file descriptors.
+    DMA_BUF_BIT = lib.VKGDR_OPEN_DMA_BUF_BIT
+
+
+class MemoryAllocFlags(enum.IntEnum):
+    """Valid flags to pass to :class:`RawMemory`."""
+
+    #: Allow vkgdr_memory_get_dma_buf to be used on the allocated buffer.
+    DMA_BUF_BIT = lib.VKGDR_MEMORY_ALLOC_DMA_BUF_BIT
 
 
 class VkgdrError(RuntimeError):
@@ -112,7 +121,7 @@ class RawMemory:
     size
         Number of bytes to allocate
     flags
-        Flags for future expansion; must be 0
+        A bitwise combination of zero or flags from :class:`MemoryAllocFlags`.
 
     Raises
     ------
@@ -157,6 +166,14 @@ class RawMemory:
     def __len__(self) -> int:
         """Retrieve the size of the memory allocation."""
         return lib.vkgdr_memory_get_size(self._handle)
+
+    @property
+    def dma_buf_fd(self) -> int:
+        """Retrieve the dma-buf file descriptor."""
+        fd = lib.vkgdr_memory_get_dma_buf_fd(self._handle)
+        if fd < 0:
+            _raise_vkgdr_error()
+        return fd
 
     @property
     def is_coherent(self) -> bool:

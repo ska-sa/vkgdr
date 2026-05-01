@@ -40,7 +40,7 @@ class Memory(pycuda.driver.PointerHolderBase, vkgdr.RawMemory):
     size
         Number of bytes to allocate
     flags
-        Flags for future expansion; must be 0
+        A bitwise combination of zero or flags from :class:`~.MemoryAllocFlags`.
 
     Raises
     ------

@@ -31,8 +31,15 @@ ffibuilder.cdef(
         VKGDR_OPEN_CURRENT_CONTEXT_BIT,
         VKGDR_OPEN_FORCE_NON_COHERENT_BIT,
         VKGDR_OPEN_REQUIRE_COHERENT_BIT,
+        VKGDR_OPEN_DMA_BUF_BIT,
         ...
     } vkgdr_open_flags;
+
+    typedef enum vkgdr_memory_alloc_flags
+    {
+        VKGDR_MEMORY_ALLOC_DMA_BUF_BIT,
+        ...
+    } vkgdr_memory_alloc_flags;
 
     char *vkgdr_last_error(void);
 
@@ -45,6 +52,7 @@ ffibuilder.cdef(
     void *vkgdr_memory_get_host_ptr(vkgdr_memory_t mem);
     CUdeviceptr vkgdr_memory_get_device_ptr(vkgdr_memory_t mem);
     size_t vkgdr_memory_get_size(vkgdr_memory_t mem);
+    int vkgdr_memory_get_dma_buf_fd(vkgdr_memory_t mem);
     bool vkgdr_memory_is_coherent(vkgdr_memory_t mem);
     size_t vkgdr_memory_non_coherent_atom_size(vkgdr_memory_t mem);
 

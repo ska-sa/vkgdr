@@ -51,6 +51,7 @@ struct vkgdr
     VkDevice device;
     uint32_t memory_type;
     bool coherent;
+    bool dma_buf_support;
     size_t non_coherent_atom_size;
 
     // The CUDA functions have a fn_ prefix to avoid being mangled by #defines in cuda.h
@@ -82,6 +83,7 @@ struct vkgdr_memory
     size_t size;
     CUexternalMemory ext_mem;
     CUdeviceptr device_ptr;
+    int dma_buf_fd;
 };
 
 struct error_state
@@ -340,13 +342,19 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
             .pQueuePriorities = queue_priorities
         }
     };
-    const char * const extensions[] = {"VK_KHR_external_memory_fd"};
+    // Note: if this is extended, be sure to update the
+    // enabledExtensionCount calculation below.
+    const char * const extensions[2] = {
+        "VK_KHR_external_memory_fd",
+        "VK_EXT_external_memory_dma_buf",
+    };
+    out->dma_buf_support = flags & VKGDR_OPEN_CURRENT_CONTEXT_BIT;
     const VkDeviceCreateInfo device_info =
     {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = queue_infos,
-        .enabledExtensionCount = sizeof(extensions) / sizeof(extensions[0]),
+        .enabledExtensionCount = out->dma_buf_support ? 2 : 1,
         .ppEnabledExtensionNames = extensions
     };
     // TODO: check for the extensions instead of bumbling ahead
@@ -441,6 +449,15 @@ vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
         .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
         .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
     };
+    if (flags & VKGDR_MEMORY_ALLOC_DMA_BUF_BIT)
+    {
+        if (!g->dma_buf_support)
+        {
+            set_generic_error("VKGDR_MEMORY_ALLOC_DMA_BUF_BIT was set but VKGDR_OPEN_DMA_BUF_BIT was not");
+            return NULL;
+        }
+        export_info.handleTypes |= VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+    }
     VkMemoryAllocateInfo info =
     {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -456,6 +473,7 @@ vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
     }
     out->owner = g;
     out->size = size;
+    out->dma_buf_fd = -1;
 
     if ((vk_result = g->vkMapMemory(g->device, out->memory, 0, VK_WHOLE_SIZE, 0, &out->host_ptr)) != VK_SUCCESS)
     {
@@ -500,8 +518,20 @@ vkgdr_memory_t vkgdr_memory_alloc(vkgdr_t g, size_t size, uint32_t flags)
         goto destroy_external;
     }
 
+    if (flags & VKGDR_MEMORY_ALLOC_DMA_BUF_BIT)
+    {
+        fd_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+        if ((vk_result = g->vkGetMemoryFdKHR(g->device, &fd_info, &out->dma_buf_fd)) != VK_SUCCESS)
+        {
+            set_vk_error("vkGetMemoryFdKHR failed", vk_result);
+            goto free_cuda;
+        }
+    }
+
     return out;
 
+free_cuda:
+    g->fn_cuMemFree_v2(out->device_ptr);
 destroy_external:
     g->fn_cuDestroyExternalMemory(out->ext_mem);
 unmap_memory:
@@ -518,6 +548,10 @@ void vkgdr_memory_free(vkgdr_memory_t mem)
     if (mem)
     {
         vkgdr_t g = mem->owner;
+        if (mem->dma_buf_fd >= 0)
+        {
+            close(mem->dma_buf_fd);
+        }
         g->fn_cuMemFree_v2(mem->device_ptr);
         g->fn_cuDestroyExternalMemory(mem->ext_mem);
         g->vkUnmapMemory(g->device, mem->memory);
@@ -539,6 +573,15 @@ CUdeviceptr vkgdr_memory_get_device_ptr(vkgdr_memory_t mem)
 size_t vkgdr_memory_get_size(vkgdr_memory_t mem)
 {
     return mem->size;
+}
+
+int vkgdr_memory_get_dma_buf_fd(vkgdr_memory_t mem)
+{
+    if (mem->dma_buf_fd < 0)
+    {
+        set_generic_error("memory was allocated without VKGDR_MEMORY_ALLOC_DMA_BUF_BIT");
+    }
+    return mem->dma_buf_fd;
 }
 
 bool vkgdr_memory_is_coherent(vkgdr_memory_t mem)
