@@ -47,7 +47,7 @@ repos:
       - id: pip-compile
         args:
           - --output-file=requirements.txt
-          - --extra=test
+          - --group=test
           - --python-version=3.12
           - setup.cfg
         files: '^(setup\.cfg|requirements\.txt)$'

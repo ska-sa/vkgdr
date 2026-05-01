@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Need this for katversion to pick up the tags
+          # Need this for setuptools-scm to pick up the tags
           # (see https://github.com/actions/checkout/issues/1471)
           fetch-depth: 0
           fetch-tags: true

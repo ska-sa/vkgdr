@@ -16,4 +16,6 @@
 
 from setuptools import setup
 
-setup(cffi_modules=["src/vkgdr/build.py:ffibuilder"], use_katversion=True)
+# CFFI doesn't yet support declarative installation:
+# https://github.com/python-cffi/cffi/issues/55
+setup(cffi_modules=["src/vkgdr/build.py:ffibuilder"])
