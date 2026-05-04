@@ -17,24 +17,17 @@
 """Parts of vkgdr that are independent of the CUDA bindings used."""
 
 import enum
-from typing import Type, TypeVar
+import importlib.metadata
+from typing import TypeVar
 
 from ._vkgdr import ffi, lib
 
-_V = TypeVar("_V", bound="Vkgdr")
-
-
-# BEGIN VERSION CHECK
-# Get package version when locally imported from repo or via -e develop install
 try:
-    import katversion as _katversion
-except ImportError:
-    import time as _time
+    __version__ = importlib.metadata.version("vkgdr")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "unknown"
 
-    __version__ = "0.0+unknown.{}".format(_time.strftime("%Y%m%d%H%M"))
-else:
-    __version__ = _katversion.get_version(__path__[0])  # type: ignore
-# END VERSION CHECK
+_V = TypeVar("_V", bound="Vkgdr")
 
 
 class OpenFlags(enum.IntEnum):
@@ -89,7 +82,7 @@ class Vkgdr:
         self._handle = ffi.gc(handle, lib.vkgdr_close)
 
     @classmethod
-    def open_current_context(cls: Type[_V], flags: int = 0) -> _V:
+    def open_current_context(cls: type[_V], flags: int = 0) -> _V:
         """Construct an instance using the current CUDA context.
 
         This is a shortcut to pass :data:`OpenFlags.CURRENT_CONTEXT_BIT`

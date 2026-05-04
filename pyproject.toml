@@ -1,30 +1,84 @@
 [build-system]
 requires = [
-    "setuptools",
-    "wheel",
+    "setuptools>=80",  # Lower bound recommended by setuptools_scm
+    "setuptools_scm[simple]>=9.2",
     "cffi",
-    "katversion",
-    "setuptools_scm[toml]==6.4.2"   # Just for producing the manifest, not versioning
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vkgdr"
+description = "Use Vulkan to allocate CUDA memory that is writable from the host"
+readme = "README.rst"
+authors = [
+    {name = "Bruce Merry", email = "gpucbf@sarao.ac.za"},
+]
+license = "BSD-3-Clause"
+classifiers = [
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "cffi>=1.12.0",
+]
+requires-python = ">=3.10"
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/ska-sa/vkgdr"
+Documentation = "https://vkgdr.readthedocs.io"
+
+[project.optional-dependencies]
+pycuda = [
+    "pycuda",
+]
+
+[dependency-groups]
+test = [
+    "pytest>=9",
+    "pytest-custom_exit_code",
+    "pycuda",
+    "numpy",
+]
+doc = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "breathe",
 ]
 
 [tool.cibuildwheel]
 build-frontend = "build"
 before-all = "manylinux/before_all.sh"
 manylinux-x86_64-image = "manylinux_2_28"
-build = ["cp39-manylinux*"]   # Uses limited API, so only one version needed
+build = ["cp310-manylinux*"]   # Uses limited API, so only one version needed
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
 
-[tool.black]
+[tool.ruff]
 line-length = 120
-
-[tool.isort]
-profile = "black"
-line_length = 120
-
-[tool.pytest.ini_options]
-testpaths = "test"
-filterwarnings = [
-       'ignore:`np\..*` is a deprecated alias::pycuda\.compyte\.dtypes',
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "C90",  # mccabe
+    "F",  # pyflakes
+    "I",  # isort
+    "D",  # pydocstyle
+    "B",  # flake8-bugbear
+    "N",  # pep8-naming
+    "UP",  # pyupgrade
+    "RUF100",  # Uncecessary noqa directives
 ]
+extend-ignore = ["D105", "D107"]  # docstrings for magic methods
+exclude = ["setup.py"]
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+files = ["src/vkgdr", "test"]
+
+[tool.pytest]
+testpaths = ["test"]

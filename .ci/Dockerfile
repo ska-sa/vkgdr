@@ -22,6 +22,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-rec
     build-essential \
     cuda-nvcc-12-9 \
     cuda-profiler-api-12-9 \
+    git \
     libcurand-dev-12-9 \
     libegl1 \
     libvulkan-dev \

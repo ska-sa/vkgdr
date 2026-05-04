@@ -30,7 +30,8 @@ except PackageNotFoundError:
     author = "Unknown author"
     release = "Unknown release"
 else:
-    author = dist.metadata["Author"]
+    # Extract the author's name from Author-email
+    author = dist.metadata["Author-email"].split("<")[0].strip()
     release = dist.metadata["Version"]
 version = release
 
