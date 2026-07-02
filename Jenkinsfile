@@ -26,6 +26,8 @@ pipeline {
       dir '.ci'
       registryCredentialsId 'dockerhub'  // Supply credentials to avoid rate limit
       args '--runtime=nvidia'
+      // Label the built image to assist with garbage collection
+      additionalBuildArgs "--label=za.ac.kat.dpp.jenkins.build=${env.BUILD_ID}"
     }
   }
 
