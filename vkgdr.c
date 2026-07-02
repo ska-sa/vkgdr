@@ -378,7 +378,7 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
     if (i == memory_properties.memoryTypeCount)
     {
         set_generic_error("Vulkan device does not provide a suitable memory type");
-        goto free_devices;
+        goto destroy_device;
     }
     out->memory_type = i;
     if ((memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
@@ -410,6 +410,8 @@ vkgdr_t vkgdr_open(CUdevice device, uint32_t flags)
     INIT_VK_DEVICE_PFN(out, vkUnmapMemory);
     return out;
 
+destroy_device:
+    vkDestroyDevice(out->device, NULL);
 free_devices:
     free(devices);
 destroy_instance:
